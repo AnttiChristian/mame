@@ -376,6 +376,8 @@ STOP            01001000  10111011          12  stop
 
 DEFINE_DEVICE_TYPE(UPD7810,  upd7810_device,  "upd7810",  "NEC uPD7810")
 DEFINE_DEVICE_TYPE(UPD78C10, upd78c10_device, "upd78c10", "NEC uPD78C10")
+DEFINE_DEVICE_TYPE(UPD7811,  upd7811_device,  "upd7811",  "NEC uPD7811")
+DEFINE_DEVICE_TYPE(UPD78C11, upd78c11_device, "upd78c11", "NEC uPD78C11")
 DEFINE_DEVICE_TYPE(UPD7807,  upd7807_device,  "upd7807",  "NEC uPD7807")
 DEFINE_DEVICE_TYPE(UPD7801,  upd7801_device,  "upd7801",  "NEC uPD7801")
 DEFINE_DEVICE_TYPE(UPD78C05, upd78c05_device, "upd78c05", "NEC uPD78C05")
@@ -389,7 +391,8 @@ void upd7810_device::upd_internal_128_ram_map(address_map &map)
 
 void upd7810_device::upd_internal_256_ram_map(address_map &map)
 {
-	map(0xff00, 0xffff).ram();
+	map(0xff00, 0xffff).view(m_ram_view);
+	m_ram_view[0](0xff00, 0xffff).ram();
 }
 
 void upd7810_device::upd_internal_4096_rom_128_ram_map(address_map &map)
@@ -401,7 +404,8 @@ void upd7810_device::upd_internal_4096_rom_128_ram_map(address_map &map)
 void upd7810_device::upd_internal_4096_rom_256_ram_map(address_map &map)
 {
 	map(0x0000, 0x0fff).rom();
-	map(0xff00, 0xffff).ram();
+	map(0xff00, 0xffff).view(m_ram_view);
+	m_ram_view[0](0xff00, 0xffff).ram();
 }
 
 upd7810_device::upd7810_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, address_map_constructor internal_map)
@@ -410,20 +414,21 @@ upd7810_device::upd7810_device(const machine_config &mconfig, device_type type, 
 	, m_co0_func(*this)
 	, m_co1_func(*this)
 	, m_txd_func(*this)
-	, m_rxd_func(*this)
-	, m_an_func(*this)
-	, m_pa_in_cb(*this)
-	, m_pb_in_cb(*this)
-	, m_pc_in_cb(*this)
-	, m_pd_in_cb(*this)
-	, m_pf_in_cb(*this)
+	, m_rxd_func(*this, 1)
+	, m_an_func(*this, 0)
+	, m_pa_in_cb(*this, 0xff)
+	, m_pb_in_cb(*this, 0xff)
+	, m_pc_in_cb(*this, 0xff)
+	, m_pd_in_cb(*this, 0xff)
+	, m_pf_in_cb(*this, 0xff)
 	, m_pa_out_cb(*this)
 	, m_pb_out_cb(*this)
 	, m_pc_out_cb(*this)
 	, m_pd_out_cb(*this)
 	, m_pf_out_cb(*this)
-	, m_pt_in_cb(*this)
+	, m_pt_in_cb(*this, 0) // TODO: uPD7807 only
 	, m_program_config("program", ENDIANNESS_LITTLE, 8, 16, 0, internal_map)
+	, m_ram_view(*this, "ram_view")
 	, m_pa_pullups(0xff)
 	, m_pb_pullups(0xff)
 	, m_pc_pullups(0xff)
@@ -456,6 +461,16 @@ upd78c10_device::upd78c10_device(const machine_config &mconfig, device_type type
 
 upd78c10_device::upd78c10_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: upd78c10_device(mconfig, UPD78C10, tag, owner, clock, address_map_constructor(FUNC(upd78c10_device::upd_internal_256_ram_map), this))
+{
+}
+
+upd7811_device::upd7811_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
+	: upd7810_device(mconfig, UPD7811, tag, owner, clock, address_map_constructor(FUNC(upd7811_device::upd_internal_4096_rom_256_ram_map), this))
+{
+}
+
+upd78c11_device::upd78c11_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
+	: upd78c10_device(mconfig, UPD78C11, tag, owner, clock, address_map_constructor(FUNC(upd78c11_device::upd_internal_4096_rom_256_ram_map), this))
 {
 }
 
@@ -585,23 +600,30 @@ void upd7810_device::pf_w(uint8_t data, uint8_t mem_mask)
 	COMBINE_DATA(&m_pf_in);
 }
 
+void upd7810_device::sck_w(int state)
+{
+	if ((SMH & 0x03) == 0x03 && state != SCK)
+		update_sio(1);
+	SCK = state;
+}
+
 uint8_t upd7810_device::RP(offs_t port)
 {
 	uint8_t data = 0xff;
 	switch (port)
 	{
 	case UPD7810_PORTA:
-		if (m_ma && !m_pa_in_cb.isnull())   // NS20031301 no need to read if the port is set as output
+		if (m_ma && !m_pa_in_cb.isunset())  // NS20031301 no need to read if the port is set as output
 			m_pa_in = m_pa_in_cb(0, m_ma);
 		data = (m_pa_in & m_ma) | (m_pa_out & ~m_ma);
 		break;
 	case UPD7810_PORTB:
-		if (m_mb && !m_pb_in_cb.isnull())   // NS20031301 no need to read if the port is set as output
+		if (m_mb && !m_pb_in_cb.isunset())  // NS20031301 no need to read if the port is set as output
 			m_pb_in = m_pb_in_cb(0, m_mb);
 		data = (m_pb_in & m_mb) | (m_pb_out & ~m_mb);
 		break;
 	case UPD7810_PORTC:
-		if (m_mc && !m_pc_in_cb.isnull())   // NS20031301 no need to read if the port is set as output
+		if (m_mc && !m_pc_in_cb.isunset())  // NS20031301 no need to read if the port is set as output
 			m_pc_in = m_pc_in_cb(0, m_mc);
 		data = (m_pc_in & m_mc) | (m_pc_out & ~m_mc);
 		if (m_mcc & 0x01)   /* PC0 = TxD output */
@@ -622,7 +644,7 @@ uint8_t upd7810_device::RP(offs_t port)
 			data = (data & ~0x80) | (m_co1 & 1 ? 0x80 : 0x00);
 		break;
 	case UPD7810_PORTD:
-		if (!m_pd_in_cb.isnull())
+		if (!m_pd_in_cb.isunset())
 			m_pd_in = m_pd_in_cb();
 		switch (m_mm & 0x07)
 		{
@@ -638,7 +660,7 @@ uint8_t upd7810_device::RP(offs_t port)
 		}
 		break;
 	case UPD7810_PORTF:
-		if (m_mf && !m_pf_in_cb.isnull())
+		if (m_mf && !m_pf_in_cb.isunset())
 			m_pf_in = m_pf_in_cb(0, m_mf);
 		switch (m_mm & 0x06)
 		{
@@ -835,7 +857,7 @@ void upd7810_device::upd7810_take_irq()
 	{
 		/* acknowledge external IRQ */
 		if (irqline)
-			standard_irq_callback(irqline);
+			standard_irq_callback(irqline, PC);
 		SP--;
 		WM( SP, PSW );
 		SP--;
@@ -896,7 +918,7 @@ void upd7801_device::upd7810_take_irq()
 	{
 		/* acknowledge external IRQ */
 		if (irqline)
-			standard_irq_callback(irqline);
+			standard_irq_callback(irqline, PC);
 		SP--;
 		WM( SP, PSW );
 		SP--;
@@ -911,7 +933,9 @@ void upd7801_device::upd7810_take_irq()
 
 void upd7810_device::upd7810_to_output_change(int state)
 {
-	TO = state & 1;
+	if ((SMH & 0x03) == 0x00 && state != TO)
+		update_sio(1);
+	TO = state;
 	m_to_func(TO);
 
 	if (m_mcc & 0x10)
@@ -1113,6 +1137,7 @@ void upd7810_device::upd7810_sio_input()
 				case 0x48:  /* 7bits, no parity, 1 stop bit */
 				case 0x68:  /* 7bits, no parity, 1 stop bit (parity select = 1 but parity is off) */
 					m_rxs >>= 16 - 9;
+					m_rxs |= ~0U << 9;
 					RXB = (m_rxs >> 1) & 0x7f;
 					if ((1 << 8) != (m_rxs & (1 | (1 << 8))))
 						IRR |= INTER;   /* framing error */
@@ -1120,12 +1145,14 @@ void upd7810_device::upd7810_sio_input()
 				case 0x4c:  /* 8bits, no parity, 1 stop bit */
 				case 0x6c:  /* 8bits, no parity, 1 stop bit (parity select = 1 but parity is off) */
 					m_rxs >>= 16 - 10;
+					m_rxs |= ~0U << 10;
 					RXB = (m_rxs >> 1) & 0xff;
 					if ((1 << 9) != (m_rxs & (1 | (1 << 9))))
 						IRR |= INTER;   /* framing error */
 					break;
 				case 0x58:  /* 7bits, odd parity, 1 stop bit */
 					m_rxs >>= 16 - 10;
+					m_rxs |= ~0U << 10;
 					RXB = (m_rxs >> 1) & 0x7f;
 					if ((1 << 9) != (m_rxs & (1 | (1 << 9))))
 						IRR |= INTER;   /* framing error */
@@ -1134,6 +1161,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0x5c:  /* 8bits, odd parity, 1 stop bit */
 					m_rxs >>= 16 - 11;
+					m_rxs |= ~0U << 11;
 					RXB = (m_rxs >> 1) & 0xff;
 					if ((1 << 10) != (m_rxs & (1 | (1 << 10))))
 						IRR |= INTER;   /* framing error */
@@ -1142,6 +1170,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0x78:  /* 7bits, even parity, 1 stop bit */
 					m_rxs >>= 16 - 10;
+					m_rxs |= ~0U << 10;
 					RXB = (m_rxs >> 1) & 0x7f;
 					if ((1 << 9) != (m_rxs & (1 | (1 << 9))))
 						IRR |= INTER;   /* framing error */
@@ -1150,6 +1179,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0x7c:  /* 8bits, even parity, 1 stop bit */
 					m_rxs >>= 16 - 11;
+					m_rxs |= ~0U << 11;
 					RXB = (m_rxs >> 1) & 0xff;
 					if ((1 << 10) != (m_rxs & (1 | (1 << 10))))
 						IRR |= INTER;   /* framing error */
@@ -1159,6 +1189,7 @@ void upd7810_device::upd7810_sio_input()
 				case 0xc8:  /* 7bits, no parity, 2 stop bits */
 				case 0xe8:  /* 7bits, no parity, 2 stop bits (parity select = 1 but parity is off) */
 					m_rxs >>= 16 - 10;
+					m_rxs |= ~0U << 10;
 					RXB = (m_rxs >> 1) & 0x7f;
 					if ((3 << 9) != (m_rxs & (1 | (3 << 9))))
 						IRR |= INTER;   /* framing error */
@@ -1168,6 +1199,7 @@ void upd7810_device::upd7810_sio_input()
 				case 0xcc:  /* 8bits, no parity, 2 stop bits */
 				case 0xec:  /* 8bits, no parity, 2 stop bits (parity select = 1 but parity is off) */
 					m_rxs >>= 16 - 11;
+					m_rxs |= ~0U << 11;
 					RXB = (m_rxs >> 1) & 0xff;
 					if ((3 << 10) != (m_rxs & (1 | (3 << 10))))
 						IRR |= INTER;   /* framing error */
@@ -1176,6 +1208,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0xd8:  /* 7bits, odd parity, 2 stop bits */
 					m_rxs >>= 16 - 11;
+					m_rxs |= ~0U << 11;
 					RXB = (m_rxs >> 1) & 0x7f;
 					if ((3 << 10) != (m_rxs & (1 | (3 << 10))))
 						IRR |= INTER;   /* framing error */
@@ -1184,6 +1217,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0xdc:  /* 8bits, odd parity, 2 stop bits */
 					m_rxs >>= 16 - 12;
+					m_rxs |= ~0U << 12;
 					RXB = (m_rxs >> 1) & 0xff;
 					if ((3 << 11) != (m_rxs & (1 | (3 << 11))))
 						IRR |= INTER;   /* framing error */
@@ -1192,6 +1226,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0xf8:  /* 7bits, even parity, 2 stop bits */
 					m_rxs >>= 16 - 11;
+					m_rxs |= ~0U << 11;
 					RXB = (m_rxs >> 1) & 0x7f;
 					if ((3 << 10) != (m_rxs & (1 | (3 << 10))))
 						IRR |= INTER;   /* framing error */
@@ -1200,6 +1235,7 @@ void upd7810_device::upd7810_sio_input()
 					break;
 				case 0xfc:  /* 8bits, even parity, 2 stop bits */
 					m_rxs >>= 16 - 12;
+					m_rxs |= ~0U << 12;
 					RXB = (m_rxs >> 1) & 0xff;
 					if ((3 << 11) != (m_rxs & (1 | (3 << 11))))
 						IRR |= INTER;   /* framing error */
@@ -1211,6 +1247,7 @@ void upd7810_device::upd7810_sio_input()
 			else
 			{
 				m_rxs >>= 16 - 8;
+				m_rxs |= ~0U << 8;
 				RXB = m_rxs;
 //              m_rxcnt = 8;
 			}
@@ -1337,6 +1374,25 @@ void upd7810_device::upd7810_handle_timer1(int cycles, int clkdiv)
 	}
 }
 
+void upd7810_device::update_sio(int cycles)
+{
+	const int divider[] = { 2, 384 / 3, 24 / 3, 2 };
+	const int prescale[] = { 1, 1, 16, 64 };
+	const int interval = divider[SMH & 0x03] * prescale[SML & 0x03];
+
+	OVCS += cycles;
+
+	while (OVCS >= interval / 2)
+	{
+		OVCS -= (interval / 2);
+
+		if (0 == (EDGES ^= 1))
+			upd7810_sio_input(); // rising edge
+		else
+			upd7810_sio_output(); // falling edge
+	}
+}
+
 void upd7810_device::handle_timers(int cycles)
 {
 	/**** TIMER 0 ****/
@@ -1448,21 +1504,7 @@ void upd7810_device::handle_timers(int cycles)
 	// we only handle "internal clock" serial mode here
 	if (((SMH & 0x03) == 0x01) || ((SMH & 0x03) == 0x02))
 	{
-		const int divider[] = { 0, 384, 24, 0 };
-		const int prescale[] = { 1, 1, 16, 64 };
-		const int interval = divider[SMH & 0x03] / 3 * prescale[SML & 0x03];
-
-		OVCS += cycles;
-
-		while (OVCS >= interval / 2)
-		{
-			OVCS -= (interval / 2);
-
-			if (0 == (EDGES ^= 1))
-				upd7810_sio_input(); // rising edge
-			else
-				upd7810_sio_output(); // falling edge
-		}
+		update_sio(cycles);
 	}
 
 	/**** ADC ****/
@@ -1573,27 +1615,6 @@ void upd7810_device::base_device_start()
 	space(AS_PROGRAM).specific(m_program);
 	space(AS_PROGRAM).cache(m_opcodes);
 
-	m_to_func.resolve_safe();
-	m_co0_func.resolve_safe();
-	m_co1_func.resolve_safe();
-	m_txd_func.resolve_safe();
-	m_rxd_func.resolve_safe(1);
-	m_an_func.resolve_all_safe(0);
-
-	m_pa_in_cb.resolve();
-	m_pb_in_cb.resolve();
-	m_pc_in_cb.resolve();
-	m_pd_in_cb.resolve();
-	m_pf_in_cb.resolve();
-
-	m_pa_out_cb.resolve_safe();
-	m_pb_out_cb.resolve_safe();
-	m_pc_out_cb.resolve_safe();
-	m_pd_out_cb.resolve_safe();
-	m_pf_out_cb.resolve_safe();
-
-	m_pt_in_cb.resolve_safe(0); // TODO: uPD7807 only
-
 	configure_ops();
 
 	save_item(NAME(m_ppc.w.l));
@@ -1690,6 +1711,9 @@ void upd7810_device::device_start()
 {
 	base_device_start();
 
+	MM = 8;
+	m_ram_view.select(0);
+
 	state_add( UPD7810_PC,   "PC",   m_pc.w.l).formatstr("%04X");
 	state_add( UPD7810_SP,   "SP",   m_sp.w.l).formatstr("%04X");
 	state_add( UPD7810_PSW,  "PSW",  m_psw).formatstr("%02X");
@@ -1744,6 +1768,31 @@ void upd7810_device::device_start()
 	state_add( UPD7810_LV1,  "LV1",  m_lv1).formatstr("%3u");
 	state_add( UPD7810_CO0,  "CO0",  m_co0).formatstr("%3u");
 	state_add( UPD7810_CO1,  "CO1",  m_co1).formatstr("%3u");
+
+	state_add( STATE_GENPC, "GENPC", m_pc.w.l ).formatstr("%04X").noshow();
+	state_add( STATE_GENPCBASE, "CURPC", m_ppc.w.l ).formatstr("%04X").noshow();
+	state_add( STATE_GENFLAGS, "GENFLAGS", m_psw ).formatstr("%17s").noshow();
+}
+
+void upd7801_device::device_start()
+{
+	base_device_start();
+
+	state_add( UPD7810_PC,   "PC",   m_pc.w.l).formatstr("%04X");
+	state_add( UPD7810_SP,   "SP",   m_sp.w.l).formatstr("%04X");
+	state_add( UPD7810_PSW,  "PSW",  m_psw).formatstr("%02X");
+	state_add( UPD7810_A,    "A",    m_va.b.l).formatstr("%02X");
+	state_add( UPD7810_V,    "V",    m_va.b.h).formatstr("%02X");
+	state_add( UPD7810_EA,   "EA",   m_ea.w.l).formatstr("%04X");
+	state_add( UPD7810_BC,   "BC",   m_bc.w.l).formatstr("%04X");
+	state_add( UPD7810_DE,   "DE",   m_de.w.l).formatstr("%04X");
+	state_add( UPD7810_HL,   "HL",   m_hl.w.l).formatstr("%04X");
+	state_add( UPD7810_CNT0, "CNT0", m_cnt.b.l).formatstr("%02X");
+	state_add( UPD7810_CNT1, "CNT1", m_cnt.b.h).formatstr("%02X");
+	state_add( UPD7810_TM0,  "TM0",  m_tm.b.l).formatstr("%02X");
+	state_add( UPD7810_TM1,  "TM1",  m_tm.b.h).formatstr("%02X");
+	state_add( UPD7810_MB,   "MB",   m_mb).formatstr("%02X");
+	state_add( UPD7810_MKL,  "MKL",  m_mkl).formatstr("%02X");
 
 	state_add( STATE_GENPC, "GENPC", m_pc.w.l ).formatstr("%04X").noshow();
 	state_add( STATE_GENPCBASE, "CURPC", m_ppc.w.l ).formatstr("%04X").noshow();
@@ -1822,9 +1871,9 @@ void upd7810_device::device_reset()
 	m_etm.d = 0;
 	MA = 0xff;
 	MB = 0xff;
-	m_mcc = 0;
+	MCC = 0;
 	MC = 0xff;
-	m_mm = 0;
+	MM &= 8;
 	MF = 0xff;
 	m_mt = 0;
 	TMM = 0xff;
@@ -1870,7 +1919,7 @@ void upd7810_device::device_reset()
 	m_int2 = 1; // physical (inverted) INT2 line state
 
 	m_txs = 0;
-	m_rxs = 0;
+	m_rxs = ~0;
 	m_txcnt = 0;
 	m_rxcnt = 0;
 	m_txbuf = 0;

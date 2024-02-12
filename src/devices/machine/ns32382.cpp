@@ -5,19 +5,18 @@
  * National Semiconductor 32382 Memory Management Unit.
  *
  * Sources:
- *   - http://bitsavers.org/components/national/_dataBooks/1988_National_Series_32000_Microprocessors_Databook.pdf
+ *  - Microprocessor Databook, Series 32000, NSC800, 1989 Edition, National Semiconductor
  *
  * TODO:
- *   - tlb
- *   - breakpoints
- *   - cycles
- *   - fast status protocol
+ *  - tlb
+ *  - breakpoints
+ *  - cycles
+ *  - fast status protocol
  */
 
 #include "emu.h"
 #include "ns32382.h"
 
-#define LOG_GENERAL   (1U << 0)
 #define LOG_TRANSLATE (1U << 1)
 
 //#define VERBOSE (LOG_GENERAL|LOG_TRANSLATE)

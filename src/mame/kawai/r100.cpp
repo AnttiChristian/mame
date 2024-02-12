@@ -14,6 +14,9 @@
 #include "emupal.h"
 #include "screen.h"
 
+
+namespace {
+
 class kawai_r100_state : public driver_device
 {
 public:
@@ -129,7 +132,7 @@ void kawai_r100_state::r100(machine_config &config)
 
 	PALETTE(config, "palette", palette_device::MONOCHROME_INVERTED);
 
-	HD44780(config, m_lcdc, 0);
+	HD44780(config, m_lcdc, 270'000); // TODO: clock not measured, datasheet typical clock used
 	m_lcdc->set_lcd_size(2, 16);
 	m_lcdc->set_pixel_update_cb(FUNC(kawai_r100_state::pixel_update));
 }
@@ -146,5 +149,8 @@ ROM_START(r100)
 	ROM_REGION(0x80000, "pcm", 0)
 	ROM_LOAD("kawai_mn234001kaa.u20", 0x00000, 0x80000, CRC(aaf1805e) SHA1(5894b4cb03e17a5aa8c2b0c9b1b3d9285009a1c3))
 ROM_END
+
+} // anonymous namespace
+
 
 SYST(1987, r100, 0, 0, r100, r100, kawai_r100_state, empty_init, "Kawai Musical Instrument Manufacturing", "R-100 Digital Drum Machine", MACHINE_IS_SKELETON)

@@ -45,11 +45,6 @@ class rp2a03_device : public rp2a03_core_device, public device_mixer_interface {
 public:
 	rp2a03_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock);
 
-	uint8_t psg1_4014_r();
-	uint8_t psg1_4015_r();
-	void psg1_4015_w(uint8_t data);
-	void psg1_4017_w(uint8_t data);
-
 	void rp2a03_map(address_map &map);
 
 protected:
@@ -59,7 +54,7 @@ protected:
 
 	virtual void device_add_mconfig(machine_config &config) override;
 
-	DECLARE_WRITE_LINE_MEMBER(apu_irq);
+	void apu_irq(int state);
 	uint8_t apu_read_mem(offs_t offset);
 };
 

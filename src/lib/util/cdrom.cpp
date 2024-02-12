@@ -19,6 +19,7 @@
 #include "cdrom.h"
 
 #include "corestr.h"
+#include "multibyte.h"
 #include "osdfile.h"
 #include "strformat.h"
 
@@ -33,7 +34,6 @@
 /** @brief  The verbose. */
 #define VERBOSE (0)
 #define EXTRA_VERBOSE (0)
-#if VERBOSE
 
 /**
  * @def LOG(x) do
@@ -43,31 +43,7 @@
  * @param   x   The void to process.
  */
 
-#define LOG(x) do { if (VERBOSE) logerror x; } while (0)
-
-/**
- * @fn  void CLIB_DECL logerror(const char *text, ...) ATTR_PRINTF(1,2);
- *
- * @brief   Logerrors the given text.
- *
- * @param   text    The text.
- *
- * @return  A CLIB_DECL.
- */
-
-void CLIB_DECL logerror(const char *text, ...) ATTR_PRINTF(1,2);
-#else
-
-/**
- * @def LOG(x);
- *
- * @brief   A macro that defines log.
- *
- * @param   x   The void to process.
- */
-
-#define LOG(x)
-#endif
+#define LOG(x) do { if (VERBOSE) { osd_printf_info x; } } while (0)
 
 
 
@@ -422,7 +398,7 @@ std::error_condition cdrom_file::read_partial_sector(void *dest, uint32_t lbasec
 		sourcefileoffset += chdsector * bytespersector + startoffs;
 
 		if (EXTRA_VERBOSE)
-			printf("Reading sector %d from track %d at offset %lu\n", chdsector, tracknum, (unsigned long)sourcefileoffset);
+			printf("Reading %u bytes from sector %d from track %d at offset %lu\n", (unsigned)length, chdsector, tracknum + 1, (unsigned long)sourcefileoffset);
 
 		size_t actual;
 		result = srcfile.seek(sourcefileoffset, SEEK_SET);
@@ -438,9 +414,7 @@ std::error_condition cdrom_file::read_partial_sector(void *dest, uint32_t lbasec
 		uint8_t *buffer = (uint8_t *)dest - startoffs;
 		for (int swapindex = startoffs; swapindex < 2352; swapindex += 2 )
 		{
-			int swaptemp = buffer[ swapindex ];
-			buffer[ swapindex ] = buffer[ swapindex + 1 ];
-			buffer[ swapindex + 1 ] = swaptemp;
+			std::swap(buffer[ swapindex ], buffer[ swapindex + 1 ]);
 		}
 	}
 	return result;
@@ -485,6 +459,7 @@ bool cdrom_file::read_data(uint32_t lbasector, void *buffer, uint32_t datatype, 
 
 	if ((datatype == tracktype) || (datatype == CD_TRACK_RAW_DONTCARE))
 	{
+		assert(cdtoc.tracks[tracknum].datasize != 0);
 		return !read_partial_sector(buffer, lbasector, chdsector, tracknum, 0, cdtoc.tracks[tracknum].datasize, phys);
 	}
 	else
@@ -503,9 +478,7 @@ bool cdrom_file::read_data(uint32_t lbasector, void *buffer, uint32_t datatype, 
 
 			static const uint8_t syncbytes[12] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
 			memcpy(bufptr, syncbytes, 12);
-			bufptr[12] = msf>>16;
-			bufptr[13] = msf>>8;
-			bufptr[14] = msf&0xff;
+			put_u24be(&bufptr[12], msf);
 			bufptr[15] = 1; // mode 1
 			LOG(("CDROM: promotion of mode1/form1 sector to mode1 raw is not complete!\n"));
 			return !read_partial_sector(bufptr+16, lbasector, chdsector, tracknum, 0, 2048, phys);
@@ -680,11 +653,6 @@ void cdrom_file::get_info_from_type_string(const char *typestring, uint32_t *trk
 		*datasize = 2324;
 	}
 	else if (!strcmp(typestring, "MODE2_FORM_MIX"))
-	{
-		*trktype = CD_TRACK_MODE2_FORM_MIX;
-		*datasize = 2336;
-	}
-	else if (!strcmp(typestring, "MODE2/2336"))
 	{
 		*trktype = CD_TRACK_MODE2_FORM_MIX;
 		*datasize = 2336;
@@ -1779,14 +1747,11 @@ uint32_t cdrom_file::parse_wav_sample(std::string_view filename, uint32_t *datao
 
 uint16_t cdrom_file::read_uint16(FILE *infile)
 {
-	uint16_t res = 0;
 	unsigned char buffer[2];
 
 	fread(buffer, 2, 1, infile);
 
-	res = buffer[1] | buffer[0]<<8;
-
-	return res;
+	return get_u16be(buffer);
 }
 
 /**
@@ -1801,14 +1766,11 @@ uint16_t cdrom_file::read_uint16(FILE *infile)
 
 uint32_t cdrom_file::read_uint32(FILE *infile)
 {
-	uint32_t res = 0;
 	unsigned char buffer[4];
 
 	fread(buffer, 4, 1, infile);
 
-	res = buffer[3] | buffer[2]<<8 | buffer[1]<<16 | buffer[0]<<24;
-
-	return res;
+	return get_u32be(buffer);
 }
 
 /**
@@ -1823,18 +1785,11 @@ uint32_t cdrom_file::read_uint32(FILE *infile)
 
 uint64_t cdrom_file::read_uint64(FILE *infile)
 {
-	uint64_t res0(0), res1(0);
-	uint64_t res;
 	unsigned char buffer[8];
 
 	fread(buffer, 8, 1, infile);
 
-	res0 = buffer[3] | buffer[2]<<8 | buffer[1]<<16 | buffer[0]<<24;
-	res1 = buffer[7] | buffer[6]<<8 | buffer[5]<<16 | buffer[4]<<24;
-
-	res = res0<<32 | res1;
-
-	return res;
+	return get_u64be(buffer);
 }
 
 /*-------------------------------------------------
@@ -1884,7 +1839,7 @@ std::error_condition cdrom_file::parse_nero(std::string_view tocfname, toc &outt
 		return chd_file::error::UNSUPPORTED_FORMAT;
 	}
 
-	chain_offs = buffer[11] | (buffer[10]<<8) | (buffer[9]<<16) | (buffer[8]<<24);
+	chain_offs = get_u32be(&buffer[8]);
 
 	if ((buffer[7] != 0) || (buffer[6] != 0) || (buffer[5] != 0) || (buffer[4] != 0))
 	{
@@ -1900,7 +1855,7 @@ std::error_condition cdrom_file::parse_nero(std::string_view tocfname, toc &outt
 		fseek(infile, chain_offs, SEEK_SET);
 		fread(buffer, 8, 1, infile);
 
-		chunk_size = (buffer[7] | buffer[6]<<8 | buffer[5]<<16 | buffer[4]<<24);
+		chunk_size = get_u32be(&buffer[4]);
 
 //      printf("Chunk type: %c%c%c%c, size %x\n", buffer[0], buffer[1], buffer[2], buffer[3], chunk_size);
 
@@ -2930,45 +2885,6 @@ std::error_condition cdrom_file::parse_gdicue(std::string_view tocfname, toc &ou
 	}
 
 	/*
-	 * Strip pregaps from Redump tracks and adjust the LBA offset to match TOSEC layout
-	 */
-	for (trknum = 1; trknum < outtoc.numtrks; trknum++)
-	{
-		uint32_t prev_pregap = outtoc.tracks[trknum-1].pregap;
-		uint32_t prev_offset = prev_pregap * (outtoc.tracks[trknum-1].datasize + outtoc.tracks[trknum-1].subsize);
-		uint32_t this_pregap = outtoc.tracks[trknum].pregap;
-		uint32_t this_offset = this_pregap * (outtoc.tracks[trknum].datasize + outtoc.tracks[trknum].subsize);
-
-		if (outtoc.tracks[trknum-1].pgtype != CD_TRACK_AUDIO)
-		{
-			// pad previous DATA track to match TOSEC layout
-			outtoc.tracks[trknum-1].frames += this_pregap;
-			outtoc.tracks[trknum-1].padframes += this_pregap;
-		}
-
-		if (outtoc.tracks[trknum-1].pgtype == CD_TRACK_AUDIO && outtoc.tracks[trknum].pgtype == CD_TRACK_AUDIO)
-		{
-			// shift previous AUDIO track to match TOSEC layout
-			outinfo.track[trknum-1].offset += prev_offset;
-			outtoc.tracks[trknum-1].splitframes += prev_pregap;
-		}
-
-		if (outtoc.tracks[trknum-1].pgtype == CD_TRACK_AUDIO && outtoc.tracks[trknum].pgtype != CD_TRACK_AUDIO)
-		{
-			// shrink previous AUDIO track to match TOSEC layout
-			outtoc.tracks[trknum-1].frames -= prev_pregap;
-			outinfo.track[trknum-1].offset += prev_offset;
-		}
-
-		if (outtoc.tracks[trknum].pgtype == CD_TRACK_AUDIO && trknum == outtoc.numtrks-1)
-		{
-			// shrink final AUDIO track to match TOSEC layout
-			outtoc.tracks[trknum].frames -= this_pregap;
-			outinfo.track[trknum].offset += this_offset;
-		}
-	}
-
-	/*
 	 * Special handling for TYPE_III_SPLIT, pregap in last track contains 75 frames audio and 150 frames data
 	 */
 	if (disc_pattern == TYPE_III_SPLIT)
@@ -2987,7 +2903,7 @@ std::error_condition cdrom_file::parse_gdicue(std::string_view tocfname, toc &ou
 	}
 
 	/*
-	 * TOC now matches TOSEC layout, set LBA for every track with HIGH-DENSITY area @ LBA 45000
+	 * Set LBA for every track with HIGH-DENSITY area @ LBA 45000
 	 */
 	for (trknum = 1; trknum < outtoc.numtrks; trknum++)
 	{
@@ -3002,10 +2918,6 @@ std::error_condition cdrom_file::parse_gdicue(std::string_view tocfname, toc &ou
 		{
 			outtoc.tracks[trknum].physframeofs = outtoc.tracks[trknum-1].physframeofs + outtoc.tracks[trknum-1].frames;
 		}
-
-		// no longer need the pregap info, zeroed out to match TOSEC layout
-		outtoc.tracks[trknum].pregap = 0;
-		outtoc.tracks[trknum].pgtype = 0;
 	}
 
 	if (EXTRA_VERBOSE)

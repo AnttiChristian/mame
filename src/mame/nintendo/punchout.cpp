@@ -135,7 +135,7 @@ DIP locations verified for:
 
 // Z80 (main)
 
-WRITE_LINE_MEMBER(punchout_state::nmi_mask_w)
+void punchout_state::nmi_mask_w(int state)
 {
 	m_nmi_mask = state;
 	if (!m_nmi_mask)
@@ -256,6 +256,7 @@ void punchout_state::spnchout_io_map(address_map &map)
 void punchout_state::punchout_sound_map(address_map &map)
 {
 	map(0x0000, 0x07ff).ram();
+	map(0x4000, 0x400f).nopr();
 	map(0x4016, 0x4016).r("soundlatch", FUNC(generic_latch_8_device::read));
 	map(0x4017, 0x4017).r("soundlatch2", FUNC(generic_latch_8_device::read));
 	map(0xe000, 0xffff).rom();
@@ -592,7 +593,7 @@ static GFXDECODE_START( gfx_armwrest )
 GFXDECODE_END
 
 
-WRITE_LINE_MEMBER(punchout_state::vblank_irq)
+void punchout_state::vblank_irq(int state)
 {
 	if (state && m_nmi_mask)
 		m_maincpu->set_input_line(INPUT_LINE_NMI, ASSERT_LINE);

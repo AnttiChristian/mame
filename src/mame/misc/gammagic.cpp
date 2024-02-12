@@ -7,14 +7,21 @@ Game Magic (c) 1997 Bally Gaming Co.
 Preliminary driver by Grull Osgo
 
 TODO:
-- skeleton driver, needs devices hooked up
-  (several of these unemulated at the time of this writing)
+- gammagic: throws a CONFIG.SYS error in CD_BALLY.SYS right away,
+  checks the disc drive in bp 6b26 subroutine against a 0x0258 value after sending an
+  identify packet device command (shutms11 ATAPI returns 0x0208).
+  Seems to be a Toshiba XM-3301 CD/DVD drive according to RAM buffer.
+
+- gammagic: requires Voodoo and a ESS Solo-1/Maestro PCI card family to boot;
+
+- 99bottles: "not High Sierra or ISO9660", likely bad (disc-at-once with one track?)
+
 - Identify and hookup proper motherboard BIOS
   Should be a m55hipl with CD-ROM as bootable option, m55-04ns and m55-04s doesn't cope with
   this requirement, dump mentions using El Torito specs at offset 0x8801.
-- CD-ROM dumps are unreadable by DOS ("not High Sierra or ISO9660"),
-  .cue sports a single data track with 2 seconds pregap, extracting the CD and editing
-  the .cue to remove the pregap makes it mountable, is it a chd issue or dump mistake?
+  Notice that CD_BALLY.SYS driver mentions using an Adaptec AHA-154x SCSI, is the CD drive actually
+  connected there rather than being BIOS responsibility?
+
 - Missing 68k dump portion.
   Very unlikely it transfers code from serial, and CD-ROM dump doesn't have any clear file that
   would indicate a code transfer or an handshake between main and sub CPUs;
@@ -31,7 +38,7 @@ V8000 platform includes:
 
 1 Motherboard MICRONICS M55Hi-Plus PCI/ISA, Chipset INTEL i430HX (TRITON II), 64 MB Ram (4 SIMM M x 16 MB SIMM)
 On board Sound Blaster Vibra 16C chipset.
-    [has optional ESS references in dump -AS]
+    [has reference to an ESS Solo-1/Maestro driver -AS]
 1 TOSHIBA CD-ROM or DVD-ROM Drive w/Bootable CD-ROM with Game.
 1 OAK SVGA PCI Video Board.
 1 Voodoo Graphics PCI Video Board, connected to the monitor.
@@ -80,7 +87,7 @@ private:
 void gammagic_state::gammagic_map(address_map &map)
 {
 	map(0x00000000, 0x0009ffff).ram();
-	map(0x000a0000, 0x000bffff).rw("vga", FUNC(vga_device::mem_r), FUNC(vga_device::mem_w));
+//  map(0x000a0000, 0x000bffff).rw("vga", FUNC(vga_device::mem_r), FUNC(vga_device::mem_w));
 	map(0x000e0000, 0x000fffff).rom().region("isa", 0x20000);/* System BIOS */
 	map(0x00100000, 0x07ffffff).ram();
 	map(0x08000000, 0xfffdffff).noprw();
@@ -93,9 +100,7 @@ void gammagic_state::gammagic_io(address_map &map)
 	map(0x00e8, 0x00ef).noprw();
 //  map(0x00f0, 0x01ef).noprw();
 //  map(0x01f8, 0x03af).noprw();
-	map(0x03b0, 0x03bf).rw("vga", FUNC(vga_device::port_03b0_r), FUNC(vga_device::port_03b0_w));
-	map(0x03c0, 0x03cf).rw("vga", FUNC(vga_device::port_03c0_r), FUNC(vga_device::port_03c0_w));
-	map(0x03d0, 0x03df).rw("vga", FUNC(vga_device::port_03d0_r), FUNC(vga_device::port_03d0_w));
+//  map(0x03b0, 0x03df).m("vga", FUNC(vga_device::io_map));
 //  map(0x03e0, 0x03ef).noprw();
 //  map(0x0cf8, 0x0cff).rw("pcibus", FUNC(pci_bus_device::read), FUNC(pci_bus_device::write));
 //  map(0x0400, 0xffff).noprw();
@@ -120,9 +125,6 @@ void gammagic_state::gammagic(machine_config &config)
 
 	PCI_ROOT(config, "pci", 0);
 	// ...
-
-	/* video hardware */
-	pcvideo_vga(config);
 }
 
 
@@ -130,11 +132,9 @@ ROM_START( gammagic )
 	ROM_REGION32_LE(0x40000, "isa", 0)
 	//Original Memory Set
 	//ROM_LOAD("m7s04.rom",   0, 0x40000, CRC(3689f5a9) SHA1(8daacdb0dc6783d2161680564ffe83ac2515f7ef))
+	// TODO: add this (needs "OAK SVGA" PCI BIOS hooked up)
 	//ROM_LOAD("otivga_tx2953526.rom", 0x0000, 0x8000, CRC(916491af) SHA1(d64e3a43a035d70ace7a2d0603fc078f22d237e1))
 
-	// TODO: remove this (needs "OAK SVGA" PCI BIOS hooked up)
-	ROM_LOAD16_BYTE( "trident_tgui9680_bios.bin", 0x0000, 0x4000, BAD_DUMP CRC(1eebde64) SHA1(67896a854d43a575037613b3506aea6dae5d6a19) )
-	ROM_CONTINUE(                                 0x0001, 0x4000 )
 	// TODO: specs mentions a m55hipl compatible BIOS, this is 5HX29
 	ROM_LOAD("5hx29.bin",   0x20000, 0x20000, BAD_DUMP CRC(07719a55) SHA1(b63993fd5186cdb4f28c117428a507cd069e1f68))
 
@@ -143,18 +143,16 @@ ROM_START( gammagic )
 	ROM_LOAD("v8000.bin", 0x0000, 0x20000, NO_DUMP)
 
 	DISK_REGION( "cdrom" )
-	DISK_IMAGE_READONLY( "gammagic", 0, BAD_DUMP SHA1(caa8fc885d84dbc07fb0604c76cd23c873a65ce6) )
+	DISK_IMAGE_READONLY( "gammagic", 0, SHA1(947650b13f87eea6608a32a1bae7dca19d911f15) )
 ROM_END
 
 ROM_START( 99bottles )
 	ROM_REGION32_LE(0x40000, "isa", 0)
 	//Original BIOS/VGA-BIOS Rom Set
 	//ROM_LOAD("m7s04.rom",   0, 0x40000, CRC(3689f5a9) SHA1(8daacdb0dc6783d2161680564ffe83ac2515f7ef))
+	// TODO: add this (needs "OAK SVGA" PCI BIOS hooked up)
 	//ROM_LOAD("otivga_tx2953526.rom", 0x0000, 0x8000, CRC(916491af) SHA1(d64e3a43a035d70ace7a2d0603fc078f22d237e1))
 
-	// TODO: remove this (needs "OAK SVGA" PCI BIOS hooked up)
-	ROM_LOAD16_BYTE( "trident_tgui9680_bios.bin", 0x0000, 0x4000, BAD_DUMP CRC(1eebde64) SHA1(67896a854d43a575037613b3506aea6dae5d6a19) )
-	ROM_CONTINUE(                                 0x0001, 0x4000 )
 	// TODO: specs mentions a m55hipl compatible BIOS, this is 5HX29
 	ROM_LOAD("5hx29.bin",   0x20000, 0x20000, BAD_DUMP CRC(07719a55) SHA1(b63993fd5186cdb4f28c117428a507cd069e1f68))
 

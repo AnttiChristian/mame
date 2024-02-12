@@ -4,7 +4,7 @@
 #include "emu.h"
 
 #include "ns32000.h"
-#include "ns32000dasm.h"
+#include "ns32000d.h"
 #include "debug/debugcpu.h"
 
 DEFINE_DEVICE_TYPE(NS32008, ns32008_device, "ns32008", "National Semiconductor NS32008")
@@ -894,21 +894,21 @@ template <int Width> void ns32000_device<Width>::execute_run()
 		{
 			if (m_nmi_line)
 			{
-				// service interrupt
-				interrupt(NMI, m_pc);
-
 				// notify the debugger
 				if (machine().debug_enabled())
-					debug()->interrupt_hook(INPUT_LINE_NMI);
+					debug()->interrupt_hook(INPUT_LINE_NMI, m_pc);
+
+				// service interrupt
+				interrupt(NMI, m_pc);
 			}
 			else if (m_int_line && (m_psr & PSR_I))
 			{
-				// service interrupt
-				interrupt(NVI, m_pc);
-
 				// notify the debugger
 				if (machine().debug_enabled())
-					debug()->interrupt_hook(INPUT_LINE_IRQ0);
+					debug()->interrupt_hook(INPUT_LINE_IRQ0, m_pc);
+
+				// service interrupt
+				interrupt(NVI, m_pc);
 			}
 
 			// update trace pending
@@ -2261,9 +2261,43 @@ template <int Width> void ns32000_device<Width>::execute_run()
 						// SUBPi src,dst
 						//      gen,gen
 						//      read.i,rmw.i
-						fatalerror("unimplemented: subp (%s)\n", machine().describe_context());
+						{
+							mode[0].read_i(size);
+							mode[1].rmw_i(size);
+							decode(mode, bytes);
 
-						// TODO: tcy 16/18
+							u32 const src1 = gen_read(mode[0]);
+							u32 const src2 = gen_read(mode[1]);
+
+							// binary coded decimal subtraction with carry
+							// TODO: CHECK
+							u32 dst = 0;
+							bool carry = m_psr & PSR_C;
+							unsigned const tcy = carry ? 18 : 16;
+							for (unsigned digit = 0; digit < (size + 1) * 2; digit++)
+							{
+								signed sum = BIT(src2, digit * 4, 4) - BIT(src1, digit * 4, 4) - carry;
+
+								if (sum < 0)
+								{
+									sum = sum + 10;
+									carry = true;
+								}
+								else
+									carry = false;
+
+								dst |= sum << digit * 4;
+							}
+
+							if (carry)
+								m_psr |= PSR_C;
+							else
+								m_psr &= ~PSR_C;
+
+							gen_write(mode[1], dst);
+
+							tex = mode[0].tea + mode[1].tea + tcy;
+						}
 						break;
 					case 0xc:
 						// ABSi src,dst
@@ -2346,9 +2380,43 @@ template <int Width> void ns32000_device<Width>::execute_run()
 						// ADDPi src,dst
 						//       gen,gen
 						//       read.i,rmw.i
-						fatalerror("unimplemented: addp (%s)\n", machine().describe_context());
+						{
+							mode[0].read_i(size);
+							mode[1].rmw_i(size);
+							decode(mode, bytes);
 
-						// TODO: tcy 16/18
+							u32 const src1 = gen_read(mode[0]);
+							u32 const src2 = gen_read(mode[1]);
+
+							// binary coded decimal addition with carry
+							// TODO: CHECK
+							u32 dst = 0;
+							bool carry = m_psr & PSR_C;
+							unsigned const tcy = carry ? 18 : 16;
+							for (unsigned digit = 0; digit < (size + 1) * 2; digit++)
+							{
+								unsigned sum = BIT(src1, digit * 4, 4) + BIT(src2, digit * 4, 4) + carry;
+
+								if (sum > 9)
+								{
+									sum = sum - 10;
+									carry = true;
+								}
+								else
+									carry = false;
+
+								dst |= sum << digit * 4;
+							}
+
+							if (carry)
+								m_psr |= PSR_C;
+							else
+								m_psr &= ~PSR_C;
+
+							gen_write(mode[1], dst);
+
+							tex = mode[0].tea + mode[1].tea + tcy;
+						}
 						break;
 					}
 				}
@@ -3502,9 +3570,10 @@ template <int Width> device_memory_interface::space_config_vector ns32000_device
 	};
 }
 
-template <int Width> bool ns32000_device<Width>::memory_translate(int spacenum, int intention, offs_t &address)
+template <int Width> bool ns32000_device<Width>::memory_translate(int spacenum, int intention, offs_t &address, address_space *&target_space)
 {
-	return !m_mmu || m_mmu->translate(space(spacenum), spacenum, address, m_psr & PSR_U, intention & TRANSLATE_WRITE, false, intention & TRANSLATE_DEBUG_MASK) == ns32000_mmu_interface::COMPLETE;
+	target_space = &space(spacenum);
+	return !m_mmu || m_mmu->translate(space(spacenum), spacenum, address, m_psr & PSR_U, intention == TR_WRITE, false, true) == ns32000_mmu_interface::COMPLETE;
 }
 
 template <int Width> std::unique_ptr<util::disasm_interface> ns32000_device<Width>::create_disassembler()

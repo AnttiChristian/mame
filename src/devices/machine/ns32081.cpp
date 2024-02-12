@@ -5,10 +5,10 @@
  * National Semiconductor 32081 Floating-Point Unit.
  *
  * Sources:
- *   - http://bitsavers.org/components/national/_dataBooks/1989_National_Microprocessor_Databook_32000_NSC800.pdf
+ *  - Microprocessor Databook, Series 32000, NSC800, 1989 Edition, National Semiconductor
  *
  * TODO:
- *   - testing
+ *  - testing
  */
 
 #include "emu.h"
@@ -16,7 +16,6 @@
 
 #include "softfloat3/source/include/softfloat.h"
 
-#define LOG_GENERAL (1U << 0)
 //#define VERBOSE (LOG_GENERAL)
 
 #include "logmacro.h"
@@ -307,6 +306,7 @@ void ns32081_device::write_op(u16 data)
 void ns32081_device::execute()
 {
 	softfloat_exceptionFlags = 0;
+	u32 const fsr = m_fsr;
 	m_fsr &= ~FSR_TT;
 
 	m_status = 0;
@@ -410,7 +410,7 @@ void ns32081_device::execute()
 				// SFSR dest
 				//      gen
 				//      write.D
-				m_op[2].value = m_fsr;
+				m_op[2].value = fsr;
 				m_op[2].expected = 4;
 				m_tcy = 13;
 				break;
@@ -629,7 +629,7 @@ void ns32081_device::execute()
 
 	m_state = STATUS;
 
-	if (m_out_scb)
+	if (!m_out_scb.isunset())
 		m_complete->adjust(attotime::from_ticks(m_tcy, clock()));
 }
 

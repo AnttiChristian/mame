@@ -24,7 +24,9 @@ TODO:
 - where is the steering wheel motor torque output for dirtdash? Answer: The data comes from the Serial Port on
   the MOTHER PCB at J2 Pin 7 /TXD
 - tokyowar garbage tile at right edge in attract mode. It's part of the cabinet link message, maybe BTANB?
+- ridgera2 title screen scrolls horizontally on some video footage, C139 related?
 - texture u/v mapping is often 1 pixel off, resulting in many glitch lines/gaps between textures
+- improve vertex lighting (is it phong shading?)
 - global offset is wrong in non-super22 testmode video test
 - acedrive/victlap testmode video test flickers
 - ss22 testmode video test screen#04 translucent polygon should be higher priority than sprite
@@ -38,17 +40,6 @@ TODO:
   + timecris stage 2-1 final section, steel beam appears through plank
   + cybrcycc speed dial should be more to the left
   + most of it is zsort related, there's plenty more, but need clearly visible cases with PCB evidence
-- improve ss22 lighting:
-  + acedrive/victlap sparks
-  + adillor title logo
-  + alpinr2b spinning yellow best times in attract mode
-  + alpinr2b mountains in selection screen
-  + propcycl score/time
-  + propcycl Solitar pillars
-  + ridgerac car when entering highscore
-  + ridgerac waving flag
-  + ridgerac rotating sign before 2nd tunnel
-  + timecris Sherudo's knives
 - improve ss22 spot, used in dirtdash, alpines highscore entry, testmode screen#14 - not understood well:
   + does not work at all in alpines (uses spot_factor, not spotram, should show a spotlight with darkened background)
   + should be done before global fade, see dirtdash when starting at jungle level
@@ -62,7 +53,7 @@ TODO:
 - alpha blended sprite/poly with priority over alpha blended text doesn't work right
 - ss22 poly/sprite alpha is probably more limited than currently emulated, not supporting stacked layers
   + airco22 attract mode, see-through plane looks weird (they probably meant to just darken it)
-  + cybrcycc game over screen has a weird glitch
+  + cybrcycc game over screen has a weird glitch during fade (see the "E" of "GAME")
 
 BTANB:
 - ridgerac suspension bridge, cables appearing through the guardrail (worse on MAME, see poly position in TODO?),
@@ -3218,7 +3209,7 @@ INPUT_PORTS_END
 /*********************************************************************************************/
 
 template <int N>
-READ_LINE_MEMBER(alpine_state::alpine_motor_r)
+int alpine_state::alpine_motor_r()
 {
 	return BIT(m_motor_status, N);
 }
@@ -5288,10 +5279,10 @@ ROM_END
 
 ROM_START( alpinr2b )
 	ROM_REGION( 0x800000, "maincpu", 0 ) /* main program */
-	ROM_LOAD32_BYTE( "ars2ver-b.2",  0x000003, 0x200000, CRC(ed977f83) SHA1(26c57cdfc15f799a999ee22f141e1c0cabfc91dc) )
-	ROM_LOAD32_BYTE( "ars2ver-b.3",  0x000001, 0x200000, CRC(8e7a9983) SHA1(34c82e5f080efe04d6b77a77a8391cb48b69c1af) )
-	ROM_LOAD32_BYTE( "ars2ver-b.4",  0x000002, 0x200000, CRC(610e49c2) SHA1(433c6d2216551bac31584306f748af1c912c3b07) )
-	ROM_LOAD32_BYTE( "ars2ver-b.5",  0x000000, 0x200000, CRC(7f3517b0) SHA1(3e6ba1a51bf235f40f933aae1f00638b88bba522) )
+	ROM_LOAD32_BYTE( "ars2ver-b.2",  0x000003, 0x200000, CRC(ed977f83) SHA1(26c57cdfc15f799a999ee22f141e1c0cabfc91dc) ) // 2nd half empty
+	ROM_LOAD32_BYTE( "ars2ver-b.3",  0x000001, 0x200000, CRC(8e7a9983) SHA1(34c82e5f080efe04d6b77a77a8391cb48b69c1af) ) // "
+	ROM_LOAD32_BYTE( "ars2ver-b.4",  0x000002, 0x200000, CRC(610e49c2) SHA1(433c6d2216551bac31584306f748af1c912c3b07) ) // "
+	ROM_LOAD32_BYTE( "ars2ver-b.5",  0x000000, 0x200000, CRC(7f3517b0) SHA1(3e6ba1a51bf235f40f933aae1f00638b88bba522) ) // "
 
 	ROM_REGION( 0x10000*2, "master", 0 ) /* Master DSP */
 	ROM_LOAD16_WORD( "c71.bin", 0,0x1000*2, CRC(47c623ab) SHA1(e363ac50f5556f83308d4cc191b455e9b62bcfc8) )
@@ -5341,10 +5332,10 @@ ROM_END
 
 ROM_START( alpinr2a )
 	ROM_REGION( 0x800000, "maincpu", 0 ) /* main program */
-	ROM_LOAD32_BYTE( "ars2ver-a.2",  0x000003, 0x200000, CRC(b07b15a4) SHA1(ea3b2d7b4ef4ccf3aafeef7e7eac92e8d446f4e7) )
-	ROM_LOAD32_BYTE( "ars2ver-a.3",  0x000002, 0x200000, CRC(90a92e40) SHA1(bf8083256e56e7e33e61b4cdaf9fd03dabfb36ba) )
-	ROM_LOAD32_BYTE( "ars2ver-a.4",  0x000001, 0x200000, CRC(9e9d771d) SHA1(6fb983e3f4f8233544667b1bbf87864e4fb8698c) )
-	ROM_LOAD32_BYTE( "ars2ver-a.5",  0x000000, 0x200000, CRC(e93c7771) SHA1(305f35488a55be1b845702df972bba8334c0726c) )
+	ROM_LOAD32_BYTE( "ars2ver-a.2",  0x000003, 0x200000, CRC(b07b15a4) SHA1(ea3b2d7b4ef4ccf3aafeef7e7eac92e8d446f4e7) ) // 2nd half empty
+	ROM_LOAD32_BYTE( "ars2ver-a.3",  0x000002, 0x200000, CRC(90a92e40) SHA1(bf8083256e56e7e33e61b4cdaf9fd03dabfb36ba) ) // "
+	ROM_LOAD32_BYTE( "ars2ver-a.4",  0x000001, 0x200000, CRC(9e9d771d) SHA1(6fb983e3f4f8233544667b1bbf87864e4fb8698c) ) // "
+	ROM_LOAD32_BYTE( "ars2ver-a.5",  0x000000, 0x200000, CRC(e93c7771) SHA1(305f35488a55be1b845702df972bba8334c0726c) ) // "
 
 	ROM_REGION( 0x10000*2, "master", 0 ) /* Master DSP */
 	ROM_LOAD16_WORD( "c71.bin", 0,0x1000*2, CRC(47c623ab) SHA1(e363ac50f5556f83308d4cc191b455e9b62bcfc8) )
@@ -5435,7 +5426,7 @@ ROM_START( alpines )
 	ROM_LOAD( "af1wavea.2l",  0x000000, 0x400000, CRC(28cca494) SHA1(4ff87ab85fd17bf8dbee5b03d99cc5c31dd6349a) )
 ROM_END
 
-ROM_START( alpinesa ) // only 4 different DWORDs at 0x700, watchpoint does not trigger there
+ROM_START( alpinesa ) // only 4 different DWORDs at 0x700, it's either a serial number, or a log from when Namco serviced the cabinet
 	ROM_REGION( 0x800000, "maincpu", 0 ) /* main program */
 	ROM_LOAD32_BYTE( "af2ver-a_ll.ic2", 0x000003, 0x200000, CRC(d8025e98) SHA1(e1c08557e70d632bf1e99356d6c6f76b5f407b8f) )
 	ROM_LOAD32_BYTE( "af2ver-a_lm.ic3", 0x000002, 0x200000, CRC(5f805d51) SHA1(b7fa9028deeaf1c549e9c2d6099925a0d0ad1598) )
@@ -6257,7 +6248,7 @@ GAME( 1993, ridgeraca,  ridgerac, namcos22,  ridgera,   namcos22_state,  init_ri
 GAME( 1993, ridgeracb,  ridgerac, namcos22,  ridgera,   namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer (US, RR3 Ver.B)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS ) // 1994-01-17, reports as "-Foreign B-" RR3 means USA?
 GAME( 1993, ridgeracc,  ridgerac, namcos22,  ridgera,   namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer (US, RR3)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS ) // 1993-10-28, purportedly 3 Screen version, reports as "-Foreign B-"
 GAME( 1993, ridgeracj,  ridgerac, namcos22,  ridgera,   namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer (Japan, RR1)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS ) // 1993-10-07
-GAME( 1993, ridgeracf,  ridgerac, namcos22,  ridgeracf, namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer Full Scale (World, RRF2)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NOT_WORKING ) // 1993-12-13, very different version, incomplete dump.
+GAME( 1993, ridgeracf,  0,        namcos22,  ridgeracf, namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer Full Scale (World, RRF2)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NOT_WORKING ) // 1993-12-13, very different version, incomplete dump.
 GAME( 1994, ridgera2,   0,        namcos22,  ridgera2,  namcos22_state,  init_ridgera2,  ROT0, "Namco", "Ridge Racer 2 (World, RRS2)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NODEVICE_LAN ) // 1994-06-21 - NOT labeled "B" but based off Japan Rev.B
 GAME( 1994, ridgera2j,  ridgera2, namcos22,  ridgera2,  namcos22_state,  init_ridgera2,  ROT0, "Namco", "Ridge Racer 2 (Japan, RRS1 Ver.B)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NODEVICE_LAN ) // 1994-06-21
 GAME( 1994, ridgera2ja, ridgera2, namcos22,  ridgera2,  namcos22_state,  init_ridgera2,  ROT0, "Namco", "Ridge Racer 2 (Japan, RRS1)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NODEVICE_LAN ) // 1994-06-13

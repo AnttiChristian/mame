@@ -9,11 +9,7 @@
   Who Wants to Know? (wwtk@mail.com)
 
   This core is written with the advise and consent of Matthew Conte and is
-  released under the GNU Public License.  This core is freely available for
-  use in any freeware project, subject to the following terms:
-
-  Any modifications to this code must be duly noted in the source and
-  approved by Matthew Conte and myself prior to public submission.
+  released under the GNU Public License.
 
  *****************************************************************************
 
@@ -52,7 +48,7 @@ public:
 	virtual void device_reset() override;
 	virtual void device_clock_changed() override;
 
-	u8 read(offs_t offset);
+	u8 status_r();
 	void write(offs_t offset, u8 data);
 
 protected:
@@ -75,7 +71,7 @@ private:
 
 	// internal state
 	apu_t   m_APU;                   /* Actual APUs */
-	int     m_is_pal;
+	u8      m_is_pal;
 	u32     m_samps_per_sync;        /* Number of samples per vsync */
 	u32     m_vbl_times[SYNCS_MAX1];   /* VBL durations in samples */
 	u32     m_sync_times1[SYNCS_MAX1]; /* Samples per sync table */
@@ -87,6 +83,11 @@ private:
 	devcb_write_line m_irq_handler;
 	devcb_read8 m_mem_read_cb;
 
+	emu_timer *m_frame_timer;
+	attotime m_frame_period;
+	u16 m_frame_clocks;
+
+	TIMER_CALLBACK_MEMBER(frame_timer_cb);
 	void calculate_rates();
 	void apu_square(apu_t::square_t *chan);
 	void apu_triangle(apu_t::triangle_t *chan);

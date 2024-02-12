@@ -142,19 +142,25 @@
 	NSRect const    available = [[NSScreen mainScreen] visibleFrame];
 	NSSize const    regCurrent = [regScroll frame].size;
 	NSSize const    regSize = [NSScrollView frameSizeForContentSize:[regView maximumFrameSize]
-											  hasHorizontalScroller:YES
-												hasVerticalScroller:YES
-														 borderType:[regScroll borderType]];
+											horizontalScrollerClass:[NSScroller class]
+											  verticalScrollerClass:[NSScroller class]
+														 borderType:[regScroll borderType]
+														controlSize:NSControlSizeRegular
+													  scrollerStyle:NSScrollerStyleOverlay];
 	NSSize const    dasmCurrent = [dasmScroll frame].size;
 	NSSize const    dasmSize = [NSScrollView frameSizeForContentSize:[dasmView maximumFrameSize]
-											  hasHorizontalScroller:YES
-												hasVerticalScroller:YES
-														 borderType:[dasmScroll borderType]];
+											 horizontalScrollerClass:[NSScroller class]
+											   verticalScrollerClass:[NSScroller class]
+														  borderType:[dasmScroll borderType]
+														 controlSize:NSControlSizeRegular
+													   scrollerStyle:NSScrollerStyleOverlay];
 	NSSize const    consoleCurrent = [consoleContainer frame].size;
 	NSSize          consoleSize = [NSScrollView frameSizeForContentSize:[consoleView maximumFrameSize]
-												  hasHorizontalScroller:YES
-													hasVerticalScroller:YES
-															 borderType:[consoleScroll borderType]];
+												horizontalScrollerClass:[NSScroller class]
+												  verticalScrollerClass:[NSScroller class]
+															 borderType:[consoleScroll borderType]
+															controlSize:NSControlSizeRegular
+														  scrollerStyle:NSScrollerStyleOverlay];
 	NSRect          windowFrame = [window frame];
 	NSSize          adjustment;
 
@@ -404,8 +410,11 @@
 			win = [[MAMEDevicesViewer alloc] initWithMachine:*machine console:self];
 			break;
 		case osd::debugger::WINDOW_TYPE_DEVICE_INFO_VIEWER:
-			// FIXME: needs device info on init, make another variant
-			//win = [[MAMEDeviceInfoViewer alloc] initWithMachine:*machine console:self];
+			{
+				// FIXME: feels like a leaky abstraction, but device is needed for init
+				device_t *const device = machine->root_device().subdevice(node->get_attribute_string(osd::debugger::ATTR_WINDOW_DEVICE_TAG, ":"));
+				win = [[MAMEDeviceInfoViewer alloc] initWithDevice:(device ? *device : machine->root_device()) machine:*machine console:self];
+			}
 			break;
 		default:
 			break;
@@ -437,6 +446,7 @@
 								  : NSMaxY([[[dasmSplit subviews] objectAtIndex:0] frame]));
 	}
 	[dasmView saveConfigurationToNode:node];
+	[history saveConfigurationToNode:node];
 }
 
 
@@ -451,6 +461,7 @@
 			  ofDividerAtIndex:0];
 	}
 	[dasmView restoreConfigurationFromNode:node];
+	[history restoreConfigurationFromNode:node];
 }
 
 

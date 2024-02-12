@@ -91,7 +91,7 @@ public:
 	void init_famibox();
 	void init_famistat();
 
-	DECLARE_READ_LINE_MEMBER(coin_r);
+	int coin_r();
 	DECLARE_INPUT_CHANGED_MEMBER(famibox_keyswitch_changed);
 	DECLARE_INPUT_CHANGED_MEMBER(coin_inserted);
 
@@ -126,7 +126,6 @@ private:
 	uint8_t       m_money_reg = 0;
 
 	void set_mirroring(int mirroring);
-	void sprite_dma_w(address_space &space, uint8_t data);
 	uint8_t famibox_IN0_r();
 	uint8_t famibox_IN1_r();
 	void famibox_IN0_w(uint8_t data);
@@ -169,19 +168,6 @@ void famibox_state::set_mirroring(int mirroring)
 			break;
 	}
 }
-
-/******************************************************
-
-   NES interface
-
-*******************************************************/
-
-void famibox_state::sprite_dma_w(address_space &space, uint8_t data)
-{
-	int source = data & 7;
-	m_ppu->spriteram_dma(space, source);
-}
-
 
 /******************************************************
 
@@ -396,7 +382,7 @@ void famibox_state::famibox_map(address_map &map)
 {
 	map(0x0000, 0x1fff).ram();
 	map(0x2000, 0x3fff).rw(m_ppu, FUNC(ppu2c0x_device::read), FUNC(ppu2c0x_device::write));
-	map(0x4014, 0x4014).w(FUNC(famibox_state::sprite_dma_w));
+	map(0x4014, 0x4014).w(m_ppu, FUNC(ppu2c0x_device::spriteram_dma));
 	map(0x4016, 0x4016).rw(FUNC(famibox_state::famibox_IN0_r), FUNC(famibox_state::famibox_IN0_w)); // IN0 - input port 1
 	map(0x4017, 0x4017).r(FUNC(famibox_state::famibox_IN1_r));     // IN1 - input port 2 / PSG second control register
 	map(0x5000, 0x5fff).rw(FUNC(famibox_state::famibox_system_r), FUNC(famibox_state::famibox_system_w));
@@ -448,7 +434,7 @@ INPUT_CHANGED_MEMBER(famibox_state::coin_inserted)
 	}
 }
 
-READ_LINE_MEMBER(famibox_state::coin_r)
+int famibox_state::coin_r()
 {
 	return m_coins > 0;
 }

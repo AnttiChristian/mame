@@ -42,12 +42,12 @@
 
 #include "machine/input_merger.h"
 #include "imagedev/floppy.h"
-#include "formats/pc_dsk.h"
-
-#include "debugger.h"
 
 #define VERBOSE 1
 #include "logmacro.h"
+
+
+namespace {
 
 class news_38xx_state : public driver_device
 {
@@ -80,7 +80,7 @@ protected:
 	virtual void machine_reset() override;
 
 	// address maps
-	void cpu_map(address_map &map);
+	[[maybe_unused]] void cpu_map(address_map &map);
 	void iop_map(address_map &map);
 	void iop_vector_map(address_map &map);
 
@@ -464,6 +464,9 @@ static INPUT_PORTS_START(nws3860)
 	PORT_DIPNAME(0xc0000000, 0xc0000000, "Unused") PORT_DIPLOCATION("SW1:7,8")
 	PORT_DIPSETTING(0xc0000000, DEF_STR(Off))
 INPUT_PORTS_END
+
+} // anonymous namespace
+
 
 /*   YEAR  NAME     PARENT  COMPAT  MACHINE  INPUT    CLASS            INIT         COMPANY  FULLNAME    FLAGS */
 COMP(1989, nws3860, 0,      0,      nws3860, nws3860, news_38xx_state, init_common, "Sony",  "NWS-3860", MACHINE_IS_SKELETON)

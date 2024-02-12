@@ -44,39 +44,37 @@
 #include "screen.h"
 #include "emupal.h"
 
-#include "utf8.h"
-
 #include <algorithm>
 #include <deque>
 
-#define LOG_UNKNOWN         (1 << 0)
-#define LOG_UCODE           (1 << 1)
-#define LOG_MORE_UCODE      (1 << 2)
-#define LOG_CSR             (1 << 3)
-#define LOG_CTRLBUS         (1 << 4)
-#define LOG_SYS_CTRL        (1 << 5)
-#define LOG_FDC_CTRL        (1 << 6)
-#define LOG_FDC_PORT        (1 << 7)
-#define LOG_FDC_CMD         (1 << 8)
-#define LOG_FDC_MECH        (1 << 9)
-#define LOG_OUTPUT_TIMING   (1 << 10)
-#define LOG_BRUSH_ADDR      (1 << 11)
-#define LOG_STORE_ADDR      (1 << 12)
-#define LOG_COMBINER        (1 << 13)
-#define LOG_SIZE_CARD       (1 << 14)
-#define LOG_FILTER_CARD     (1 << 15)
-#define LOG_KEYBC           (1 << 16)
-#define LOG_TDS             (1 << 17)
-#define LOG_TABLET          (1 << 18)
-#define LOG_COMMANDS        (1 << 19)
-#define LOG_HDD             (1 << 20)
-#define LOG_FDD             (1 << 21)
-#define LOG_DDB             (1 << 22)
-#define LOG_IRQ             (1 << 23)
-#define LOG_BRUSH_LATCH     (1 << 24)
-#define LOG_BRUSH_DRAWS     (1 << 25)
-#define LOG_BRUSH_WRITES    (1 << 26)
-#define LOG_STORE_READS     (1 << 27)
+#define LOG_UNKNOWN         (1U << 1)
+#define LOG_UCODE           (1U << 2)
+#define LOG_MORE_UCODE      (1U << 3)
+#define LOG_CSR             (1U << 4)
+#define LOG_CTRLBUS         (1U << 5)
+#define LOG_SYS_CTRL        (1U << 6)
+#define LOG_FDC_CTRL        (1U << 7)
+#define LOG_FDC_PORT        (1U << 8)
+#define LOG_FDC_CMD         (1U << 9)
+#define LOG_FDC_MECH        (1U << 10)
+#define LOG_OUTPUT_TIMING   (1U << 11)
+#define LOG_BRUSH_ADDR      (1U << 12)
+#define LOG_STORE_ADDR      (1U << 13)
+#define LOG_COMBINER        (1U << 14)
+#define LOG_SIZE_CARD       (1U << 15)
+#define LOG_FILTER_CARD     (1U << 16)
+#define LOG_KEYBC           (1U << 17)
+#define LOG_TDS             (1U << 18)
+#define LOG_TABLET          (1U << 19)
+#define LOG_COMMANDS        (1U << 20)
+#define LOG_HDD             (1U << 21)
+#define LOG_FDD             (1U << 22)
+#define LOG_DDB             (1U << 23)
+#define LOG_IRQ             (1U << 24)
+#define LOG_BRUSH_LATCH     (1U << 25)
+#define LOG_BRUSH_DRAWS     (1U << 26)
+#define LOG_BRUSH_WRITES    (1U << 27)
+#define LOG_STORE_READS     (1U << 28)
 #define LOG_ALL             (LOG_UNKNOWN | LOG_CSR | LOG_CTRLBUS | LOG_SYS_CTRL | LOG_BRUSH_ADDR | \
 							 LOG_STORE_ADDR | LOG_COMBINER | LOG_SIZE_CARD | LOG_FILTER_CARD | LOG_COMMANDS | LOG_OUTPUT_TIMING | \
 							 LOG_BRUSH_LATCH | LOG_FDC_PORT | LOG_FDC_CMD | LOG_FDC_MECH | LOG_BRUSH_WRITES | LOG_STORE_READS)
@@ -111,7 +109,6 @@ public:
 		, m_floppy0(*this, "0")
 		, m_hdd(*this, "hdd")
 		, m_floppy(nullptr)
-		, m_hdd_file(nullptr)
 		, m_output_cursor(*this, "output_timing_cursor")
 		, m_output_hlines(*this, "output_timing_hlines")
 		, m_output_hflags(*this, "output_timing_hflags")
@@ -160,9 +157,6 @@ private:
 	void tablet_program_map(address_map &map);
 	void tablet_data_map(address_map &map);
 
-	uint16_t bus_error_r(offs_t offset);
-	void bus_error_w(offs_t offset, uint16_t data);
-
 	void csr_w(uint8_t data);
 	uint8_t csr_r();
 
@@ -184,7 +178,7 @@ private:
 	void fddcpu_p1_w(uint8_t data);
 	uint8_t fddcpu_p2_r();
 	void fddcpu_p2_w(uint8_t data);
-	DECLARE_WRITE_LINE_MEMBER(fddcpu_debug_rx);
+	void fddcpu_debug_rx(int state);
 
 	bool handle_command(uint16_t data);
 	void store_address_w(uint8_t card, uint16_t data);
@@ -212,7 +206,7 @@ private:
 	void process_byte_from_disc(uint8_t data_byte);
 	uint8_t process_byte_to_disc();
 
-	required_device<m68000_base_device> m_maincpu;
+	required_device<m68000_device> m_maincpu;
 	required_device_array<acia6850_device, 3> m_acia;
 	required_device<input_merger_device> m_p_int;
 	required_device<com8116_device> m_brg;
@@ -243,9 +237,6 @@ private:
 	uint8_t m_fdd_track;
 	uint8_t m_fdd_side;
 	fdc_pll_t m_fdd_pll;
-
-	// Hard Disk
-	hard_disk_file *m_hdd_file;
 
 	// Timers
 	emu_timer *m_diskseq_complete_clk;
@@ -376,8 +367,8 @@ private:
 	uint8_t keyboard_p2_r();
 	void keyboard_p1_w(uint8_t data);
 	void keyboard_p2_w(uint8_t data);
-	DECLARE_READ_LINE_MEMBER(keyboard_t0_r);
-	DECLARE_READ_LINE_MEMBER(keyboard_t1_r);
+	int keyboard_t0_r();
+	int keyboard_t1_r();
 	uint8_t m_keybc_latched_bit;
 	uint8_t m_keybc_p1_data;
 	uint8_t m_keybc_tx;
@@ -405,7 +396,7 @@ private:
 	void tds_convert_w(uint8_t data);
 	uint8_t tds_adc_r();
 	uint8_t tds_pen_switches_r();
-	DECLARE_WRITE_LINE_MEMBER(duart_b_w);
+	void duart_b_w(int state);
 	TIMER_CALLBACK_MEMBER(tablet_tx_tick);
 	TIMER_CALLBACK_MEMBER(tds_adc_tick);
 	TIMER_CALLBACK_MEMBER(tds_press_tick);
@@ -486,11 +477,11 @@ void dpb7000_state::main_map(address_map &map)
 {
 	map(0x000000, 0x09ffff).rom().region("monitor", 0);
 	map(0x0006aa, 0x0006ab).nopw();
-	map(0xb00000, 0xb7ffff).rw(FUNC(dpb7000_state::bus_error_r), FUNC(dpb7000_state::bus_error_w));
+	map(0xb00000, 0xb7ffff).rw(m_maincpu, FUNC(m68000_device::berr_r), FUNC(m68000_device::berr_w));
 	map(0xb80000, 0xbfffff).ram();
-	//map(0xb00000, 0xbfffff).rw(FUNC(dpb7000_state::bus_error_r), FUNC(dpb7000_state::bus_error_w));
+	//map(0xb00000, 0xbfffff).rw(m_maincpu, FUNC(m68000_device::berr_r), FUNC(m68000_device::berr_w));
 	//map(0xfc0000, 0xffd3ff).ram();
-	map(0xffd000, 0xffd3ff).rw(FUNC(dpb7000_state::bus_error_r), FUNC(dpb7000_state::bus_error_w));
+	map(0xffd000, 0xffd3ff).rw(m_maincpu, FUNC(m68000_device::berr_r), FUNC(m68000_device::berr_w));
 	map(0xffe000, 0xffefff).ram().share("vduram").umask16(0x00ff);
 	map(0xfff801, 0xfff801).rw(m_crtc, FUNC(sy6545_1_device::status_r), FUNC(sy6545_1_device::address_w)).cswidth(16);
 	map(0xfff803, 0xfff803).rw(m_crtc, FUNC(sy6545_1_device::register_r), FUNC(sy6545_1_device::register_w)).cswidth(16);
@@ -543,9 +534,9 @@ static INPUT_PORTS_START( dpb7000 )
 	PORT_START("KEYB_COL0")
 	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_I) PORT_CHAR('i') PORT_CHAR('I')
 	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_M) PORT_CHAR('m') PORT_CHAR('M')
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"9  )  \u2013") PORT_CODE(KEYCODE_9) PORT_CHAR('9') PORT_CHAR(')')
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"9  )  \u2013") PORT_CODE(KEYCODE_9) PORT_CHAR('9') PORT_CHAR(')') // – (en dash)
 	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_N) PORT_CHAR('n') PORT_CHAR('N')
-	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"8  (  \u2014") PORT_CODE(KEYCODE_8) PORT_CHAR('8') PORT_CHAR('(')
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"8  (  \u2014") PORT_CODE(KEYCODE_8) PORT_CHAR('8') PORT_CHAR('(') // — (em dash)
 	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_K) PORT_CHAR('k') PORT_CHAR('K')
 	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_U) PORT_CHAR('u') PORT_CHAR('U')
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_J) PORT_CHAR('j') PORT_CHAR('J')
@@ -553,9 +544,9 @@ static INPUT_PORTS_START( dpb7000 )
 	PORT_START("KEYB_COL1")
 	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_Y) PORT_CHAR('y') PORT_CHAR('Y')
 	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_B) PORT_CHAR('b') PORT_CHAR('B')
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"7  \u2019  \u2018") PORT_CODE(KEYCODE_7) PORT_CHAR('7') PORT_CHAR('\'')
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"7  \u2019  \u2018") PORT_CODE(KEYCODE_7) PORT_CHAR('7') PORT_CHAR('\'') // ’ ‘
 	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_SPACE) PORT_CHAR(' ')
-	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"6  &  \u00bb") PORT_CODE(KEYCODE_6) PORT_CHAR('6') PORT_CHAR('&')
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"6  &  »") PORT_CODE(KEYCODE_6) PORT_CHAR('6') PORT_CHAR('&')
 	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_H) PORT_CHAR('h') PORT_CHAR('H')
 	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_T) PORT_CHAR('t') PORT_CHAR('T')
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_G) PORT_CHAR('g') PORT_CHAR('G')
@@ -572,18 +563,18 @@ static INPUT_PORTS_START( dpb7000 )
 
 	PORT_START("KEYB_COL3")
 	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_P) PORT_CHAR('p') PORT_CHAR('P')
-	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8".  :  \u00e6") PORT_CODE(KEYCODE_STOP) PORT_CHAR ('.') PORT_CHAR(':')
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u00b9 = ~") PORT_CODE(KEYCODE_MINUS) PORT_CHAR('=')
+	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8".  :  æ") PORT_CODE(KEYCODE_STOP) PORT_CHAR ('.') PORT_CHAR(':')
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"¹  =  ~") PORT_CODE(KEYCODE_MINUS) PORT_CHAR('=')
 	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8",  ;") PORT_CODE(KEYCODE_COMMA) PORT_CHAR(',') PORT_CHAR(';')
 	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_0) PORT_CHAR('0') PORT_CHAR('-')
-	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\ufb02  +  \u00c6") PORT_CODE(KEYCODE_COLON)
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\ufb02  +  Æ") PORT_CODE(KEYCODE_COLON) // ﬂ
 	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_O) PORT_CHAR('o') PORT_CHAR('O')
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_L) PORT_CHAR('l') PORT_CHAR('L')
 
 	PORT_START("KEYB_COL4")
 	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_W) PORT_CHAR('w') PORT_CHAR('W')
 	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_X) PORT_CHAR('x') PORT_CHAR('X')
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"3  \u00a3  \u00ab") PORT_CODE(KEYCODE_3) PORT_CHAR('3')
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"3  £  «") PORT_CODE(KEYCODE_3) PORT_CHAR('3')
 	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_Z) PORT_CHAR('z') PORT_CHAR('Z')
 	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("2  \"") PORT_CODE(KEYCODE_2) PORT_CHAR('2') PORT_CHAR('\"')
 	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_CODE(KEYCODE_S) PORT_CHAR('s') PORT_CHAR('S')
@@ -598,21 +589,21 @@ static INPUT_PORTS_START( dpb7000 )
 	PORT_BIT(0xf0, IP_ACTIVE_LOW, IPT_UNUSED)
 
 	PORT_START("KEYB_COL6")
-	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("`  `  " A_RING) PORT_CODE(KEYCODE_CLOSEBRACE) PORT_CHAR(']') PORT_CHAR('}')
+	PORT_BIT(0x01, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"`  `  Å") PORT_CODE(KEYCODE_CLOSEBRACE) PORT_CHAR(']') PORT_CHAR('}')
 	PORT_BIT(0x02, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Right Shift") PORT_CODE(KEYCODE_RSHIFT)
-	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\ua788  \u02c6  \u00f8") PORT_CODE(KEYCODE_EQUALS)
-	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"/ ?  \u0153") PORT_CODE(KEYCODE_SLASH) PORT_CHAR('/') PORT_CHAR('?')
-	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u0324  \u00a8  \u00d8") PORT_CODE(KEYCODE_TILDE) PORT_CHAR('~')
-	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u00df  \u00b8  " a_RING) PORT_CODE(KEYCODE_BACKSLASH)
-	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\u00b4  \u00b4  ~") PORT_CODE(KEYCODE_OPENBRACE) PORT_CHAR('[') PORT_CHAR('{')
-	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\ufb01  *  \u03d2") PORT_CODE(KEYCODE_QUOTE) PORT_CHAR('*')
+	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8" \ua788  ˆ  ø") PORT_CODE(KEYCODE_EQUALS) // modifier letter low circumflex accent - leave the preceding space
+	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"/ ?  œ") PORT_CODE(KEYCODE_SLASH) PORT_CHAR('/') PORT_CHAR('?')
+	PORT_BIT(0x10, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8" \u0324  ¨  Ø") PORT_CODE(KEYCODE_TILDE) PORT_CHAR('~') // combining diaeresis below - leave the preceding space
+	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"ß  ¸  å") PORT_CODE(KEYCODE_BACKSLASH)
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"´  ´  ~") PORT_CODE(KEYCODE_OPENBRACE) PORT_CHAR('[') PORT_CHAR('{')
+	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME(u8"\ufb01  *  ϒ") PORT_CODE(KEYCODE_QUOTE) PORT_CHAR('*') // ﬁ
 
 	PORT_START("KEYB_COL7")
 	PORT_BIT(0x03, IP_ACTIVE_LOW, IPT_UNUSED)
 	PORT_BIT(0x04, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Esc") PORT_CODE(KEYCODE_ESC) // 0x7f
-	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Delete") PORT_CODE(KEYCODE_BACKSPACE) PORT_CHAR('\x08') // 0x08
+	PORT_BIT(0x08, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Delete") PORT_CODE(KEYCODE_BACKSPACE) PORT_CHAR(0x08) // 0x08
 	PORT_BIT(0x30, IP_ACTIVE_LOW, IPT_UNUSED)
-	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Enter") PORT_CODE(KEYCODE_ENTER) PORT_CHAR('\x0d')
+	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_KEYBOARD) PORT_NAME("Enter") PORT_CODE(KEYCODE_ENTER) PORT_CHAR(0x0d)
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_UNUSED)
 
 	PORT_START("PENSW")
@@ -1002,9 +993,6 @@ void dpb7000_state::machine_reset()
 	m_fdd_pll.reset(machine().time());
 	m_floppy = nullptr;
 
-	// Hard Disc Handling
-	m_hdd_file = m_hdd->get_hard_disk_file();
-
 	// Disc Data Buffer Card
 	m_diskbuf_ram_addr = 0;
 	memset(m_diskbuf_ram, 0, 14 * 0x800);
@@ -1158,29 +1146,6 @@ MC6845_UPDATE_ROW(dpb7000_state::crtc_update_row)
 
 MC6845_ON_UPDATE_ADDR_CHANGED(dpb7000_state::crtc_addr_changed)
 {
-}
-
-uint16_t dpb7000_state::bus_error_r(offs_t offset)
-{
-	if(!machine().side_effects_disabled())
-	{
-		m68000_musashi_device *cpuptr = downcast<m68000_musashi_device *>(m_maincpu.target());
-		cpuptr->set_buserror_details(0xb00000 + offset*2, true, cpuptr->get_fc());
-		cpuptr->set_input_line(M68K_LINE_BUSERROR, ASSERT_LINE);
-		cpuptr->set_input_line(M68K_LINE_BUSERROR, CLEAR_LINE);
-	}
-	return 0xff;
-}
-
-void dpb7000_state::bus_error_w(offs_t offset, uint16_t data)
-{
-	if(!machine().side_effects_disabled())
-	{
-		m68000_musashi_device *cpuptr = downcast<m68000_musashi_device *>(m_maincpu.target());
-		cpuptr->set_buserror_details(0xb00000 + offset*2, false, cpuptr->get_fc());
-		cpuptr->set_input_line(M68K_LINE_BUSERROR, ASSERT_LINE);
-		cpuptr->set_input_line(M68K_LINE_BUSERROR, CLEAR_LINE);
-	}
 }
 
 void dpb7000_state::csr_w(uint8_t data)
@@ -2435,7 +2400,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 	int head_index = m_diskseq_cmd_word_from_cpu & 0xf;
 	int image_lba = SECTORS_PER_TRACK * head_count * (int)m_diskseq_cyl_from_cpu + SECTORS_PER_TRACK * head_index;
 
-	if (m_hdd_file != nullptr)
+	if (m_hdd->exists())
 	{
 		if (m_diskseq_cyl_write_pending)
 		{
@@ -2446,14 +2411,14 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 			{
 				for (int sector = start_sector; sector < 19200 / 256; sector++, image_lba++)
 				{
-					m_hdd_file->read(image_lba, sector_buffer);
+					m_hdd->read(image_lba, sector_buffer);
 					for (int stride_idx = 0; stride_idx < 256; stride_idx += 2)
 					{
 						sector_buffer[stride_idx] = m_diskbuf_ram[ram_addr];
 						ram_addr += 2;
 					}
 					LOGMASKED(LOG_HDD, "Performing write to LBA %d: Cylinder %03x, head %x, command word %03x, Stride 2 (RAM address %04x, offset %04x)\n", image_lba, m_diskseq_cyl_from_cpu, head_index, m_diskseq_cmd_word_from_cpu, m_diskbuf_ram_addr, sector * 256);
-					m_hdd_file->write(image_lba, sector_buffer);
+					m_hdd->write(image_lba, sector_buffer);
 				}
 			}
 			else
@@ -2468,7 +2433,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 							sector_buffer[i + 0] = process_byte_to_disc();
 							sector_buffer[i + 1] = process_byte_to_disc();
 						}
-						m_hdd_file->write(image_lba, sector_buffer);
+						m_hdd->write(image_lba, sector_buffer);
 					}
 				}
 				else
@@ -2476,7 +2441,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 					for (int sector = start_sector; sector < 19200 / 256; sector++, image_lba++)
 					{
 						LOGMASKED(LOG_HDD, "Performing write to LBA %d: Cylinder %03x, head %x, command word %03x (RAM address %04x, offset %04x)\n", image_lba, m_diskseq_cyl_from_cpu, head_index, m_diskseq_cmd_word_from_cpu, m_diskbuf_ram_addr, sector * 256);
-						m_hdd_file->write(image_lba, m_diskbuf_ram + sector * 256);
+						m_hdd->write(image_lba, m_diskbuf_ram + sector * 256);
 					}
 				}
 			}
@@ -2490,7 +2455,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 				for (int sector = 0; sector < 19200 / 256; sector++, image_lba++)
 				{
 					LOGMASKED(LOG_HDD, "Performing read of LBA %d: Cylinder %03x, head %x, command word %03x\n", image_lba, m_diskseq_cyl_from_cpu, head_index, m_diskseq_cmd_word_from_cpu);
-					m_hdd_file->read(image_lba, sector_buffer);
+					m_hdd->read(image_lba, sector_buffer);
 					for (int clear_idx = 0; clear_idx < 256; clear_idx += 2)
 					{
 						sector_buffer[clear_idx] = 0;
@@ -2515,7 +2480,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 				if (partial_bytes && !BIT(m_diskseq_cmd, 2))
 				{
 					LOGMASKED(LOG_HDD, "Performing partial read of sector into disk buffer address %04x\n", m_diskbuf_ram_addr);
-					m_hdd_file->read(image_lba, sector_buffer);
+					m_hdd->read(image_lba, sector_buffer);
 					memcpy(m_diskbuf_ram + m_diskbuf_ram_addr, sector_buffer + partial_bytes, 0x100 - partial_bytes);
 					m_diskbuf_ram_addr += 0x100;
 					m_diskbuf_ram_addr &= 0xff00;
@@ -2527,7 +2492,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 					LOGMASKED(LOG_HDD, "Performing read of LBA %d: Cylinder %03x, head %x, command word %03x\n", image_lba, m_diskseq_cyl_from_cpu, head_index, m_diskseq_cmd_word_from_cpu);
 					if (BIT(m_diskseq_cmd, 2))
 					{
-						m_hdd_file->read(image_lba, sector_buffer);
+						m_hdd->read(image_lba, sector_buffer);
 						for (int i = 0; i < 256; i++)
 						{
 							process_byte_from_disc(sector_buffer[i]);
@@ -2535,7 +2500,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::execute_hdd_command)
 					}
 					else
 					{
-						m_hdd_file->read(image_lba, m_diskbuf_ram + sector * 256);
+						m_hdd->read(image_lba, m_diskbuf_ram + sector * 256);
 					}
 				}
 			}
@@ -2936,7 +2901,7 @@ void dpb7000_state::fdd_index_callback(floppy_image_device *floppy, int state)
 							m_floppy->ss_w(1);
 							m_fdd_side++;
 						}
-						else if(m_diskbuf_ram_addr >= 0x4B00 && m_fdd_side == 1)
+						else if(m_diskbuf_ram_addr >= 0x4b00 && m_fdd_side == 1)
 						{
 							// If we've read the side 1 portion of the cylinder, yield out, we're done
 							curr_bit = -1;
@@ -3077,7 +3042,7 @@ uint8_t dpb7000_state::fdd_cmd_r()
 	return m_diskseq_cmd_to_ctrl;
 }
 
-WRITE_LINE_MEMBER(dpb7000_state::fddcpu_debug_rx)
+void dpb7000_state::fddcpu_debug_rx(int state)
 {
 	if (m_fdd_debug_rx_bit_count < 10)
 	{
@@ -3126,13 +3091,13 @@ void dpb7000_state::keyboard_p2_w(uint8_t data)
 	m_keybc_tx = BIT(~data, 7);
 }
 
-READ_LINE_MEMBER(dpb7000_state::keyboard_t0_r)
+int dpb7000_state::keyboard_t0_r()
 {
 	LOGMASKED(LOG_KEYBC, "%s: T0 read\n", machine().describe_context());
 	return 0;
 }
 
-READ_LINE_MEMBER(dpb7000_state::keyboard_t1_r)
+int dpb7000_state::keyboard_t1_r()
 {
 	uint8_t data = m_keybc_latched_bit;
 	//m_keybc_latched_bit = 0;
@@ -3233,7 +3198,7 @@ TIMER_CALLBACK_MEMBER(dpb7000_state::tablet_tx_tick)
 	}
 }
 
-WRITE_LINE_MEMBER(dpb7000_state::duart_b_w)
+void dpb7000_state::duart_b_w(int state)
 {
 	//printf("B%d ", state);
 }
@@ -3836,7 +3801,7 @@ void dpb7000_state::dpb7000(machine_config &config)
 	m_tds_cpu->in_p4_cb().set(FUNC(dpb7000_state::tds_p4_r));
 
 	SCN2681(config, m_tds_duart, 3.6864_MHz_XTAL);
-	m_tds_duart->irq_cb().set_inputline(m_tds_cpu, M6803_IRQ_LINE);
+	m_tds_duart->irq_cb().set_inputline(m_tds_cpu, M6803_IRQ1_LINE);
 	m_tds_duart->a_tx_cb().set(m_acia[1], FUNC(acia6850_device::write_rxd));
 	m_tds_duart->b_tx_cb().set(FUNC(dpb7000_state::duart_b_w));
 

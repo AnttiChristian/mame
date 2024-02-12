@@ -36,6 +36,10 @@
 #include "abc800_dsk.h"
 #endif
 
+#ifdef HAS_FORMATS_ABC800I_DSK
+#include "abc800i_dsk.h"
+#endif
+
 #ifdef HAS_FORMATS_ABCFD2_DSK
 #include "abcfd2_dsk.h"
 #endif
@@ -336,6 +340,10 @@
 #include "hti_tape.h"
 #endif
 
+#ifdef HAS_FORMATS_HP300_DSK
+#include "hp300_dsk.h"
+#endif
+
 #ifdef HAS_FORMATS_HPI_DSK
 #include "hpi_dsk.h"
 #endif
@@ -442,6 +450,10 @@
 
 #ifdef HAS_FORMATS_MZ_CAS
 #include "mz_cas.h"
+#endif
+
+#ifdef HAS_FORMATS_NABUPC_DSK
+#include "nabupc_dsk.h"
 #endif
 
 #ifdef HAS_FORMATS_NANOS_DSK
@@ -554,6 +566,10 @@
 
 #ifdef HAS_FORMATS_RK_CAS
 #include "rk_cas.h"
+#endif
+
+#ifdef HAS_FORMATS_ROLAND_DSK
+#include "roland_dsk.h"
 #endif
 
 #ifdef HAS_FORMATS_RX50_DSK
@@ -676,6 +692,10 @@
 #include "vg5k_cas.h"
 #endif
 
+#ifdef HAS_FORMATS_VGI_DSK
+#include "vgi_dsk.h"
+#endif
+
 #ifdef HAS_FORMATS_VICTOR9K_DSK
 #include "victor9k_dsk.h"
 #endif
@@ -720,8 +740,16 @@
 #include "fs_fat.h"
 #endif
 
+#ifdef HAS_FORMATS_FS_HPLIF
+#include "fs_hplif.h"
+#endif
+
 #ifdef HAS_FORMATS_FS_ISIS
 #include "fs_isis.h"
+#endif
+
+#ifdef HAS_FORMATS_FS_HP98X5
+#include "fs_hp98x5.h"
 #endif
 
 void mame_formats_full_list(mame_formats_enumerator &en)
@@ -808,6 +836,9 @@ void mame_formats_full_list(mame_formats_enumerator &en)
 #ifdef HAS_FORMATS_ABC800_DSK
 	en.add(FLOPPY_ABC800_FORMAT); // abc800_dsk.h
 #endif
+#ifdef HAS_FORMATS_ABC800I_DSK
+	en.add(FLOPPY_ABC800I_FORMAT); // abc800i_dsk.h
+#endif
 #ifdef HAS_FORMATS_ABCFD2_DSK
 	en.add(FLOPPY_ABC_FD2_FORMAT); // abcfd2_dsk.h
 #endif
@@ -867,11 +898,22 @@ void mame_formats_full_list(mame_formats_enumerator &en)
 #ifdef HAS_FORMATS_APOLLO_DSK
 	en.add(FLOPPY_APOLLO_FORMAT); // apollo_dsk.h
 #endif
+#ifdef HAS_FORMATS_HP300_DSK
+	en.add(FLOPPY_HP300_FORMAT); // hp300_dsk.h
+#endif
 #ifdef HAS_FORMATS_HP_IPC_DSK
 	en.add(FLOPPY_HP_IPC_FORMAT); // hp_ipc_dsk.h
 #endif
 #ifdef HAS_FORMATS_HPI_DSK
 	en.add(FLOPPY_HPI_FORMAT); // hpi_dsk.h
+#endif
+#ifdef HAS_FORMATS_FS_HPLIF
+	en.add(fs::HPLIF); // fs_lif.h
+#endif
+#ifdef HAS_FORMATS_FS_HP98X5
+	en.add(fs::HP9825);
+	en.add(fs::HP9831);
+	en.add(fs::HP9845);
 #endif
 
 	en.category("Applix");
@@ -1187,6 +1229,11 @@ void mame_formats_full_list(mame_formats_enumerator &en)
 	en.add(FLOPPY_MTX_FORMAT); // mtx_dsk.h
 #endif
 
+	en.category("NABU PC");
+#ifdef HAS_FORMATS_NABUPC_DSK
+	en.add(FLOPPY_NABUPC_FORMAT); // nabupc_dsk.h
+#endif
+
 	en.category("Nanos");
 #ifdef HAS_FORMATS_NANOS_DSK
 	en.add(FLOPPY_NANOS_FORMAT); // nanos_dsk.h
@@ -1244,6 +1291,11 @@ void mame_formats_full_list(mame_formats_enumerator &en)
 	en.category("Regnecentralen");
 #ifdef HAS_FORMATS_RC759_DSK
 	en.add(FLOPPY_RC759_FORMAT); // rc759_dsk.h
+#endif
+
+	en.category("Roland");
+#ifdef HAS_FORMATS_ROLAND_DSK
+	en.add(FLOPPY_ROLAND_SDISK_FORMAT); // roland_dsk.h
 #endif
 
 	en.category("DEC");
@@ -1380,6 +1432,11 @@ void mame_formats_full_list(mame_formats_enumerator &en)
 	en.category("Microbee");
 #ifdef HAS_FORMATS_MBEE_CAS
 	en.add(mbee_cassette_formats); // mbee_cas.h
+#endif
+
+	en.category("Micropolis");
+#ifdef HAS_FORMATS_VGI_DSK
+	en.add(FLOPPY_VGI_FORMAT); // vgi_dsk.h
 #endif
 
 	en.category("Orao");

@@ -210,13 +210,13 @@ void ds1207_device::readbit(uint8_t *buffer)
 	}
 }
 
-WRITE_LINE_MEMBER(ds1207_device::write_rst)
+void ds1207_device::write_rst(int state)
 {
 	const uint8_t this_state = state ? 1 : 0;
 	if(m_rst != this_state)
 	{
 		m_rst = this_state;
-		LOGLINES("%s: DS1270 rst=%d\n", machine().describe_context(), m_rst);
+		LOGLINES("%s: DS1207 rst=%d\n", machine().describe_context(), m_rst);
 
 		if(m_rst)
 		{
@@ -227,15 +227,15 @@ WRITE_LINE_MEMBER(ds1207_device::write_rst)
 			switch(m_state)
 			{
 				case STATE_WRITE_IDENTIFICATION:
-					LOGSTATE("%s: DS1270 reset during write identification (bit=%u)\n", machine().describe_context(), m_bit);
+					LOGSTATE("%s: DS1207 reset during write identification (bit=%u)\n", machine().describe_context(), m_bit);
 					break;
 
 				case STATE_WRITE_SECURITY_MATCH:
-					LOGSTATE("%s: DS1270 reset during write security match (bit=%u)\n", machine().describe_context(), m_bit);
+					LOGSTATE("%s: DS1207 reset during write security match (bit=%u)\n", machine().describe_context(), m_bit);
 					break;
 
 				case STATE_WRITE_SECURE_MEMORY:
-					LOGSTATE("%s: DS1270 reset during write secure memory (bit=%u)\n", machine().describe_context(), m_bit);
+					LOGSTATE("%s: DS1207 reset during write secure memory (bit=%u)\n", machine().describe_context(), m_bit);
 					break;
 			}
 
@@ -245,13 +245,13 @@ WRITE_LINE_MEMBER(ds1207_device::write_rst)
 	}
 }
 
-WRITE_LINE_MEMBER(ds1207_device::write_clk)
+void ds1207_device::write_clk(int state)
 {
 	const uint8_t this_state = state ? 1 : 0;
 	if(m_clk != this_state)
 	{
 		m_clk = this_state;
-		LOGLINES("%s: DS1270 clk=%d (bit=%u)\n", machine().describe_context(), m_clk, m_bit);
+		LOGLINES("%s: DS1207 clk=%d (bit=%u)\n", machine().describe_context(), m_clk, m_bit);
 
 		if(m_clk)
 		{
@@ -265,7 +265,7 @@ WRITE_LINE_MEMBER(ds1207_device::write_clk)
 
 				if(m_bit == 24)
 				{
-					LOGDATA("%s: DS1270 -> command %02x %02x %02x (%02x %02x)\n", machine().describe_context(),
+					LOGDATA("%s: DS1207 -> command %02x %02x %02x (%02x %02x)\n", machine().describe_context(),
 							   m_command[ 0 ], m_command[ 1 ], m_command[ 2 ], m_unique_pattern[ 0 ], m_unique_pattern[ 1 ]);
 
 					if(m_command[ 2 ] == m_unique_pattern[ 1 ] && (m_command[ 1 ] & ~3) == m_unique_pattern[ 0 ])
@@ -354,7 +354,7 @@ WRITE_LINE_MEMBER(ds1207_device::write_clk)
 
 				if(m_bit == 64)
 				{
-					LOGDATA("%s: DS1270 <- identification %02x %02x %02x %02x %02x %02x %02x %02x\n", machine().describe_context(),
+					LOGDATA("%s: DS1207 <- identification %02x %02x %02x %02x %02x %02x %02x %02x\n", machine().describe_context(),
 							   m_identification[ 0 ], m_identification[ 1 ], m_identification[ 2 ], m_identification[ 3 ],
 							   m_identification[ 4 ], m_identification[ 5 ], m_identification[ 6 ], m_identification[ 7 ]);
 
@@ -491,26 +491,26 @@ WRITE_LINE_MEMBER(ds1207_device::write_clk)
 	}
 }
 
-WRITE_LINE_MEMBER(ds1207_device::write_dq)
+void ds1207_device::write_dq(int state)
 {
 	const uint8_t this_state = state ? 1 : 0;
 	if(m_dqw != this_state)
 	{
 		m_dqw = this_state;
 
-		LOGLINES("%s: DS1270 dqw=%u\n", machine().describe_context(), m_dqw);
+		LOGLINES("%s: DS1207 dqw=%u\n", machine().describe_context(), m_dqw);
 	}
 }
 
-READ_LINE_MEMBER(ds1207_device::read_dq)
+int ds1207_device::read_dq()
 {
 	if(m_dqr == DQ_HIGH_IMPEDANCE)
 	{
-		LOGLINES("%s: DS1270 dqr=high impedance\n", machine().describe_context());
+		LOGLINES("%s: DS1207 dqr=high impedance\n", machine().describe_context());
 		return 0;
 	}
 
-	LOGLINES("%s: DS1270 dqr=%d (bit=%u)\n", machine().describe_context(), m_dqr, m_bit);
+	LOGLINES("%s: DS1207 dqr=%d (bit=%u)\n", machine().describe_context(), m_dqr, m_bit);
 	return m_dqr;
 }
 

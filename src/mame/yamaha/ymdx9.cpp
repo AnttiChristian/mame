@@ -133,9 +133,9 @@ private:
 
 	void mem_map(address_map &map);
 
-	WRITE_LINE_MEMBER(midi_r) { m_rx_data = state; }
+	void midi_r(int state) { m_rx_data = state; }
 
-	WRITE_LINE_MEMBER(midiclock_w) { if (state) m_maincpu->m6801_clock_serial(); }
+	void midiclock_w(int state) { if (state) m_maincpu->m6801_clock_serial(); }
 
 	/**
 	 * @brief Handle a write to the synth's IO Port 1.
@@ -159,6 +159,14 @@ private:
 	 * @return uint8_t The value read from the port.
 	 */
 	uint8_t p1_r(offs_t offset);
+
+	/**
+	 * @brief Handle a read from the synth's IO Port 2.
+	 * This function is used to handle incoming serial data.
+	 * @param offset The offset into the memory mapped region being read.
+	 * @return uint8_t The value read from the port.
+	 */
+	uint8_t p2_r(offs_t offset);
 };
 
 
@@ -198,9 +206,6 @@ void yamaha_dx9_state::palette_init(palette_device &palette)
  */
 void yamaha_dx9_state::mem_map(address_map &map)
 {
-	// Internal CPU registers.
-	map(0x0000, 0x001f).m(m_maincpu, FUNC(hd6303r_cpu_device::m6801_io));
-
 	map(0x0020, 0x0020).r(FUNC(yamaha_dx9_state::key_switch_scan_driver_r));
 
 	map(0x0022, 0x0022).r(m_adc, FUNC(m58990_device::data_r));
@@ -212,9 +217,6 @@ void yamaha_dx9_state::mem_map(address_map &map)
 	map(0x0028, 0x0029).rw("lcdc", FUNC(hd44780_device::read), FUNC(hd44780_device::write));
 	// LED.
 	map(0x002b, 0x002c).w(FUNC(yamaha_dx9_state::led_w));
-
-	// Internal RAM.
-	map(0x0040, 0x00ff).ram();
 
 	// External RAM.
 	// 2 * 2kb RAM1 IC19 M5M118P.
@@ -242,6 +244,7 @@ void yamaha_dx9_state::dx9(machine_config &config)
 	// Unlike the DX7 only IO port 1 is used.
 	// The direction flags of other ports are set, however they are never read, or written.
 	m_maincpu->in_p1_cb().set(FUNC(yamaha_dx9_state::p1_r));
+	m_maincpu->in_p2_cb().set(FUNC(yamaha_dx9_state::p2_r));
 	m_maincpu->out_p1_cb().set(FUNC(yamaha_dx9_state::p1_w));
 
 	NVRAM(config, "ram1", nvram_device::DEFAULT_ALL_0);
@@ -255,7 +258,7 @@ void yamaha_dx9_state::dx9(machine_config &config)
 	m_adc->in_callback<4>().set_constant(0x80);
 
 	// Configure MIDI.
-	auto &midiclock(CLOCK(config, "midiclock", 500_kHz_XTAL));
+	auto &midiclock(CLOCK(config, "midiclock", 500_kHz_XTAL / 2));
 	midiclock.signal_handler().set(FUNC(yamaha_dx9_state::midiclock_w));
 
 	MIDI_PORT(config, "mdin", midiin_slot, "midiin").rxd_handler().set(FUNC(yamaha_dx9_state::midi_r));
@@ -274,7 +277,7 @@ void yamaha_dx9_state::dx9(machine_config &config)
 
 	PALETTE(config, "palette", FUNC(yamaha_dx9_state::palette_init), 3);
 
-	hd44780_device &lcdc(HD44780(config, "lcdc", 0));
+	hd44780_device &lcdc(HD44780(config, "lcdc", 270'000)); // TODO: clock not measured, datasheet typical clock used
 	lcdc.set_lcd_size(2, 16);
 	lcdc.set_pixel_update_cb(FUNC(yamaha_dx9_state::lcd_pixel_update));
 
@@ -321,6 +324,15 @@ uint8_t yamaha_dx9_state::p1_r(offs_t offset)
 	// The ADC EOC line is wired to bit 4, as well as the Cassette Interface input, which
 	// is wired to bit 7. This is currently not fully implemented.
 	return m_adc->eoc_r() << 4;
+}
+
+
+/**
+ * yamaha_dx9_state::p2_r
+ */
+uint8_t yamaha_dx9_state::p2_r(offs_t offset)
+{
+	return m_rx_data << 3;
 }
 
 

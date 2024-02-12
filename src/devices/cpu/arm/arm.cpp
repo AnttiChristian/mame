@@ -446,19 +446,19 @@ void arm_cpu_device::arm_check_irq_state()
 
 	if (m_pendingFiq && (pc&F_MASK)==0)
 	{
+		standard_irq_callback(ARM_FIRQ_LINE, R15 & ADDRESS_MASK);
 		R15 = eARM_MODE_FIQ;    /* Set FIQ mode so PC is saved to correct R14 bank */
 		SetRegister( 14, pc );    /* save PC */
 		R15 = (pc&PSR_MASK)|(pc&IRQ_MASK)|0x1c|eARM_MODE_FIQ|I_MASK|F_MASK; /* Mask both IRQ & FIRQ, set PC=0x1c */
-		standard_irq_callback(ARM_FIRQ_LINE);
 		return;
 	}
 
 	if (m_pendingIrq && (pc&I_MASK)==0)
 	{
+		standard_irq_callback(ARM_IRQ_LINE, R15 & ADDRESS_MASK);
 		R15 = eARM_MODE_IRQ;    /* Set IRQ mode so PC is saved to correct R14 bank */
 		SetRegister( 14, pc );    /* save PC */
 		R15 = (pc&PSR_MASK)|(pc&IRQ_MASK)|0x18|eARM_MODE_IRQ|I_MASK|(pc&F_MASK); /* Mask only IRQ, set PC=0x18 */
-		standard_irq_callback(ARM_IRQ_LINE);
 		return;
 	}
 }
@@ -560,14 +560,7 @@ void arm_cpu_device::HandleBranch( uint32_t insn )
 	}
 
 	/* Sign-extend the 24-bit offset in our calculations */
-	if (off & 0x2000000u)
-	{
-		R15 = ((R15 - (((~(off | 0xfc000000u)) + 1) - 8)) & ADDRESS_MASK) | (R15 & ~ADDRESS_MASK);
-	}
-	else
-	{
-		R15 = ((R15 + (off + 8)) & ADDRESS_MASK) | (R15 & ~ADDRESS_MASK);
-	}
+	R15 = ((R15 + (util::sext(off, 26) + 8)) & ADDRESS_MASK) | (R15 & ~ADDRESS_MASK);
 	m_icount -= 2 * S_CYCLE + N_CYCLE;
 }
 

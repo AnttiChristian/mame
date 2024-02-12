@@ -24,7 +24,7 @@ previously added through expansion ports. However, there is no backwards compati
 reworked.
 
 Like MPU3, a 6840PTM is used for internal timing, and other miscellaneous control functions, including as a crude analogue sound device
-(a square wave from the PTM being used as the alarm sound generator). However, the main sound functionality is provided by
+(a square wave from the PTM being fed into a 1-bit DAC circuit as the alarm sound generator). However, the main sound functionality is provided by
 dedicated hardware (an AY8913).
 
 A MPU4 GAME CARD (cartridge) plugs into the MPU4 board containing the game, and a protection PAL (the 'characteriser').
@@ -81,7 +81,7 @@ In addition there are two auxiliary ports that can be accessed separately to the
                                                 |
                Output2 --+-> Clock3             |
                          |                      |
-                         |   Output3 ---> 'to audio amp' ??
+                         |   Output3 ---> 'to audio amp' (square wave)
                          |
                          +--------> CA1 IC3 (
 
@@ -224,6 +224,16 @@ To change between them, follow these instructions:
 
 #include "mpu4.lh"
 #include "mpu4ext.lh"
+
+#define LOG_IC3      (1U << 1)
+#define LOG_IC8      (1U << 2)
+
+#ifdef MAME_DEBUG
+#define VERBOSE (LOG_GENERAL | LOG_IC3 | LOG_IC8)
+#else
+#define VERBOSE (0)
+#endif
+#include "logmacro.h"
 
 #include <cmath>
 
@@ -380,7 +390,7 @@ void mpu4_state::update_meters()
 		break;
 
 	case FLUTTERBOX: //The backbox fan assembly fits in a reel unit sized box, wired to the remote meter pin, so we can handle it here
-		output().set_value("flutterbox", data & 0x80);
+		m_flutterbox = BIT(data, 7);
 		data &= ~0x80; //Strip flutterbox data from meter drives
 		break;
 	}
@@ -430,7 +440,7 @@ MACHINE_RESET_MEMBER(mpu4_state, mpu4)
 
 
 /* 6809 IRQ handler */
-WRITE_LINE_MEMBER(mpu4_state::cpu0_irq)
+void mpu4_state::cpu0_irq(int state)
 {
 	/* The PIA and PTM IRQ lines are all connected to a common PCB track, leading directly to the 6809 IRQ line. */
 	uint8_t combined_state = m_pia3->irq_a_state() | m_pia3->irq_b_state() |
@@ -446,18 +456,18 @@ WRITE_LINE_MEMBER(mpu4_state::cpu0_irq)
 		if (!m_link7a_connected)
 		{
 			m_maincpu->set_input_line(M6809_IRQ_LINE, combined_state ? ASSERT_LINE : CLEAR_LINE);
-			LOG(("6809 IRQ %d \n", combined_state));
+			LOG("6809 IRQ %d \n", combined_state);
 		}
 		else
 		{
 			m_maincpu->set_input_line(INPUT_LINE_NMI, combined_state ? ASSERT_LINE : CLEAR_LINE);
-			LOG(("6809 NMI %d \n", combined_state));
+			LOG("6809 NMI %d \n", combined_state);
 		}
 	}
 	else
 	{
 		m_maincpu->set_input_line(M6809_FIRQ_LINE, combined_state ? ASSERT_LINE : CLEAR_LINE);
-		LOG(("6809 FIRQ %d \n", combined_state));
+		LOG("6809 FIRQ %d \n", combined_state);
 	}
 }
 
@@ -492,7 +502,7 @@ void mpu4_state::bankset_w(uint8_t data)
 
 
 /* IC2 6840 PTM handler */
-WRITE_LINE_MEMBER(mpu4_state::ic2_o1_callback)
+void mpu4_state::ic2_o1_callback(int state)
 {
 	m_6840ptm->set_c2(state);    /* copy output value to IC2 c2
 	this output is the clock for timer2 */
@@ -500,7 +510,7 @@ WRITE_LINE_MEMBER(mpu4_state::ic2_o1_callback)
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::ic2_o2_callback)
+void mpu4_state::ic2_o2_callback(int state)
 {
 	m_pia3->ca1_w(state);    /* copy output value to IC3 ca1 */
 	/* the output from timer2 is the input clock for timer3 */
@@ -509,11 +519,12 @@ WRITE_LINE_MEMBER(mpu4_state::ic2_o2_callback)
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::ic2_o3_callback)
+void mpu4_state::ic2_o3_callback(int state)
 {
 	/* the output from timer3 is used as a square wave for the alarm output
 	and as an external clock source for timer 1! */
 	/* also runs lamp fade */
+	m_alarmdac->write(state);
 	m_6840ptm->set_c1(state);
 }
 
@@ -521,7 +532,7 @@ WRITE_LINE_MEMBER(mpu4_state::ic2_o3_callback)
 /* IC3, lamp data lines + alpha numeric display */
 void mpu4_state::pia_ic3_porta_w(uint8_t data)
 {
-	LOG_IC3(("%s: IC3 PIA Port A Set to %2x (lamp strobes 1 - 9)\n", machine().describe_context(), data));
+	LOGMASKED(LOG_IC3, "%s: IC3 PIA Port A Set to %2x (lamp strobes 1 - 9)\n", machine().describe_context(), data);
 
 	if(m_ic23_active)
 	{
@@ -546,7 +557,7 @@ void mpu4_state::pia_ic3_porta_w(uint8_t data)
 
 void mpu4_state::pia_ic3_portb_w(uint8_t data)
 {
-	LOG_IC3(("%s: IC3 PIA Port B Set to %2x  (lamp strobes 10 - 17)\n", machine().describe_context(), data));
+	LOGMASKED(LOG_IC3, "%s: IC3 PIA Port B Set to %2x  (lamp strobes 10 - 17)\n", machine().describe_context(), data);
 
 	if (m_ic23_active)
 	{
@@ -566,16 +577,16 @@ void mpu4_state::pia_ic3_portb_w(uint8_t data)
 	}
 }
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic3_ca2_w)
+void mpu4_state::pia_ic3_ca2_w(int state)
 {
-	LOG_IC3(("%s: IC3 PIA Write CA2 (alpha data), %02X\n", machine().describe_context(), state));
+	LOGMASKED(LOG_IC3, "%s: IC3 PIA Write CA2 (alpha data), %02X\n", machine().describe_context(), state);
 	m_vfd->data(state);
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic3_cb2_w)
+void mpu4_state::pia_ic3_cb2_w(int state)
 {
-	LOG_IC3(("%s: IC3 PIA Write CB (alpha reset), %02X\n", machine().describe_context(), state));
+	LOGMASKED(LOG_IC3, "%s: IC3 PIA Write CB (alpha reset), %02X\n", machine().describe_context(), state);
 // DM Data pin A
 	m_vfd->por(state);
 }
@@ -648,11 +659,11 @@ TIMER_CALLBACK_MEMBER(mpu4_state::update_ic24)
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::dataport_rxd)
+void mpu4_state::dataport_rxd(int state)
 {
 	m_pia4->cb1_w(state);
 	m_serial_output = state;
-	LOG_IC3(("Dataport RX %x\n", state));
+	LOGMASKED(LOG_IC3, "Dataport RX %x\n", state);
 }
 
 /* IC4, 7 seg leds, 50Hz timer reel sensors, current sensors */
@@ -723,22 +734,22 @@ uint8_t mpu4_state::pia_ic4_portb_r()
 
 	if (m_undercurrent) m_ic4_input_b |= 0x01;
 
-	LOG_IC3(("%s: IC4 PIA Read of Port B %x\n", machine().describe_context(), m_ic4_input_b));
+	LOGMASKED(LOG_IC3, "%s: IC4 PIA Read of Port B %x\n", machine().describe_context(), m_ic4_input_b);
 	return m_ic4_input_b;
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic4_ca2_w)
+void mpu4_state::pia_ic4_ca2_w(int state)
 {
-	LOG_IC3(("%s: IC4 PIA Write CA (input MUX strobe /LED B), %02X\n", machine().describe_context(), state));
+	LOGMASKED(LOG_IC3, "%s: IC4 PIA Write CA (input MUX strobe /LED B), %02X\n", machine().describe_context(), state);
 
 	m_IC23GB = state;
 	ic23_update();
 }
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic4_cb2_w)
+void mpu4_state::pia_ic4_cb2_w(int state)
 {
-	LOG_IC3(("%s: IC4 PIA Write CB (Reel optic flag), %02X\n", machine().describe_context(), state));
+	LOGMASKED(LOG_IC3, "%s: IC4 PIA Write CB (Reel optic flag), %02X\n", machine().describe_context(), state);
 	m_reel_flag=state;
 }
 
@@ -791,7 +802,7 @@ uint8_t mpu4_state::pia_ic5_porta_r()
 		}
 	}
 
-	LOG(("%s: IC5 PIA Read of Port A (AUX1)\n", machine().describe_context()));
+	LOG("%s: IC5 PIA Read of Port A (AUX1)\n", machine().describe_context());
 
 
 	uint8_t tempinput = m_aux1_port->read() | m_aux1_input;
@@ -910,7 +921,7 @@ uint8_t mpu4_state::pia_ic5_portb_r()
 		}
 	}
 
-	LOG(("%s: IC5 PIA Read of Port B (coin input AUX2)\n", machine().describe_context()));
+	LOG("%s: IC5 PIA Read of Port B (coin input AUX2)\n", machine().describe_context());
 	if (m_use_coinlocks)
 	{
 		// why are these being set in a read, not when the outputs are written?
@@ -966,31 +977,31 @@ void mpu4_state::update_ay()
 
 		case 0x01:
 			/* CA2 = 1 CB2 = 0? : Read from selected PSG register and make the register data available to Port A */
-			LOG(("AY8913 address = %d \n", m_pia6->a_output()&0x0f));
+			LOG("AY8913 address = %d \n", m_pia6->a_output()&0x0f);
 			break;
 
 		case 0x02:
 			/* CA2 = 0 CB2 = 1? : Write to selected PSG register and write data to Port A */
 			m_ay8913->data_w(m_pia6->a_output());
-			LOG(("AY Chip Write \n"));
+			LOG("AY Chip Write \n");
 			break;
 
 		case 0x03:
 			/* CA2 = 1 CB2 = 1? : The register will now be selected and the user can read from or write to it.
 			The register will remain selected until another is chosen.*/
 			m_ay8913->address_w(m_pia6->a_output());
-			LOG(("AY Chip Select \n"));
+			LOG("AY Chip Select \n");
 			break;
 
 		default:
-			LOG(("AY Chip error \n"));
+			LOG("AY Chip error \n");
 			break;
 		}
 	}
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic5_cb2_w)
+void mpu4_state::pia_ic5_cb2_w(int state)
 {
 	update_ay();
 }
@@ -999,7 +1010,7 @@ WRITE_LINE_MEMBER(mpu4_state::pia_ic5_cb2_w)
 /* IC6, Reel A and B and AY registers (MODs below 4 only) */
 void mpu4_state::pia_ic6_portb_w(uint8_t data)
 {
-	LOG(("%s: IC6 PIA Port B Set to %2x (Reel A and B)\n", machine().describe_context(), data));
+	LOG("%s: IC6 PIA Port B Set to %2x (Reel A and B)\n", machine().describe_context(), data);
 
 	if (m_reel_mux == SEVEN_REEL)
 	{
@@ -1020,7 +1031,7 @@ void mpu4_state::pia_ic6_portb_w(uint8_t data)
 
 void mpu4_state::pia_ic6_porta_w(uint8_t data)
 {
-	LOG(("%s: IC6 PIA Write A %2x\n", machine().describe_context(), data));
+	LOG("%s: IC6 PIA Write A %2x\n", machine().describe_context(), data);
 	if (m_ay8913.found())
 	{
 		m_ay_data = data;
@@ -1029,9 +1040,9 @@ void mpu4_state::pia_ic6_porta_w(uint8_t data)
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic6_ca2_w)
+void mpu4_state::pia_ic6_ca2_w(int state)
 {
-	LOG(("%s: IC6 PIA write CA2 %2x (AY8913 BC1)\n", machine().describe_context(), state));
+	LOG("%s: IC6 PIA write CA2 %2x (AY8913 BC1)\n", machine().describe_context(), state);
 	if (m_ay8913.found())
 	{
 		if ( state ) m_ay8913_address |=  0x01;
@@ -1041,9 +1052,9 @@ WRITE_LINE_MEMBER(mpu4_state::pia_ic6_ca2_w)
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic6_cb2_w)
+void mpu4_state::pia_ic6_cb2_w(int state)
 {
-	LOG(("%s: IC6 PIA write CB2 %2x (AY8913 BCDIR)\n", machine().describe_context(), state));
+	LOG("%s: IC6 PIA write CB2 %2x (AY8913 BCDIR)\n", machine().describe_context(), state);
 	if (m_ay8913.found())
 	{
 		if ( state ) m_ay8913_address |=  0x02;
@@ -1056,7 +1067,7 @@ WRITE_LINE_MEMBER(mpu4_state::pia_ic6_cb2_w)
 /* IC7 Reel C and D, mechanical meters/Reel E and F, input strobe bit A */
 void mpu4_state::pia_ic7_porta_w(uint8_t data)
 {
-	LOG(("%s: IC7 PIA Port A Set to %2x (Reel C and D)\n", machine().describe_context(), data));
+	LOG("%s: IC7 PIA Port A Set to %2x (Reel C and D)\n", machine().describe_context(), data);
 	if (m_reel_mux == SEVEN_REEL)
 	{
 		m_reel[5]->update( data      &0x0f);
@@ -1122,16 +1133,16 @@ uint8_t mpu4_state::pia_ic7_portb_r()
 	}
 }
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic7_ca2_w)
+void mpu4_state::pia_ic7_ca2_w(int state)
 {
-	LOG(("%s: IC7 PIA write CA2 %2x (input strobe bit 0 / LED A)\n", machine().describe_context(), state));
+	LOG("%s: IC7 PIA write CA2 %2x (input strobe bit 0 / LED A)\n", machine().describe_context(), state);
 
 	m_IC23GA = state;
 	ic24_setup();
 	ic23_update();
 }
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic7_cb2_w)
+void mpu4_state::pia_ic7_cb2_w(int state)
 {
 	m_remote_meter = state?0x80:0x00;
 }
@@ -1140,7 +1151,7 @@ WRITE_LINE_MEMBER(mpu4_state::pia_ic7_cb2_w)
 /* IC8, Inputs, TRIACS, alpha clock */
 uint8_t mpu4_state::pia_ic8_porta_r()
 {
-	LOG_IC8(("%s: IC8 PIA Read of Port A (MUX input data)\n", machine().describe_context()));
+	LOGMASKED(LOG_IC8, "%s: IC8 PIA Read of Port A (MUX input data)\n", machine().describe_context());
 	/* The orange inputs are polled twice as often as the black ones, for reasons of efficiency.
 	   This is achieved via connecting every input line to an AND gate, thus allowing two strobes
 	   to represent each orange input bank (strobes are active low). */
@@ -1167,94 +1178,32 @@ void mpu4_state::pia_ic8_portb_w(uint8_t data)
 		m_hopper2_opto =  (data & 0x04);
 		data &= ~0x07; //remove Triacs from use
 	}
-	LOG_IC8(("%s: IC8 PIA Port B Set to %2x (OUTPUT PORT, TRIACS)\n", machine().describe_context(), data));
+	LOGMASKED(LOG_IC8, "%s: IC8 PIA Port B Set to %2x (OUTPUT PORT, TRIACS)\n", machine().describe_context(), data);
 	for (uint8_t i = 0; i < 8; i++)
 	{
 		m_triacs[i] = BIT(data, i);
 	}
 }
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic8_ca2_w)
+void mpu4_state::pia_ic8_ca2_w(int state)
 {
-	LOG_IC8(("%s: IC8 PIA write CA2 (input_strobe bit 2 / LED C) %02X\n", machine().describe_context(), state & 0xff));
+	LOGMASKED(LOG_IC8, "%s: IC8 PIA write CA2 (input_strobe bit 2 / LED C) %02X\n", machine().describe_context(), state & 0xff);
 
 	m_IC23GC = state;
 	ic23_update();
 }
 
 
-WRITE_LINE_MEMBER(mpu4_state::pia_ic8_cb2_w)
+void mpu4_state::pia_ic8_cb2_w(int state)
 {
-	LOG_IC8(("%s: IC8 PIA write CB2 (alpha clock) %02X\n", machine().describe_context(), state & 0xff));
+	LOGMASKED(LOG_IC8, "%s: IC8 PIA write CB2 (alpha clock) %02X\n", machine().describe_context(), state & 0xff);
 
 	// DM Data pin B
 
 	m_vfd->sclk(!state);
 }
 
-// universal sampled sound program card PCB 683077
-// Sampled sound card, using a PIA and PTM for timing and data handling
-void mpu4_state::pia_gb_porta_w(uint8_t data)
-{
-	LOG_SS(("%s: GAMEBOARD: PIA Port A Set to %2x\n", machine().describe_context(), data));
-	m_msm6376->write(data);
-}
-
-void mpu4_state::pia_gb_portb_w(uint8_t data)
-{
-	uint8_t changed = m_expansion_latch^data;
-
-	LOG_SS(("%s: GAMEBOARD: PIA Port B Set to %2x\n", machine().describe_context(), data));
-
-	if (changed & 0x20)
-	{ // digital volume clock line changed
-		if (!(data & 0x20))
-		{ // changed from high to low,
-			if (!(data & 0x10)) // down
-			{
-				if (m_global_volume < 32) m_global_volume++; //steps unknown
-			}
-			else // up
-			{
-				if (m_global_volume > 0) m_global_volume--;
-			}
-
-			LOG_SS(("%s: GAMEBOARD: Volume Set to %2x\n", machine().describe_context(), data));
-			float percent = (32-m_global_volume)/32.0;
-			m_msm6376->set_output_gain(0, percent);
-			m_msm6376->set_output_gain(1, percent);
-		}
-	}
-	m_msm6376->ch2_w(data & 0x02);
-	m_msm6376->st_w(data & 0x01);
-}
-
-uint8_t mpu4_state::pia_gb_portb_r()
-{
-	LOG_SS(("%s: GAMEBOARD: PIA Read of Port B\n", machine().describe_context()));
-	uint8_t data = 0;
-	// b7 NAR - we can load another address into Channel 1
-	// b6, 1 = OKI ready, 0 = OKI busy
-	// b5, vol clock
-	// b4, 1 = Vol down, 0 = Vol up
-	//
-
-	if ( m_msm6376->nar_r() ) data |= 0x80;
-	else                      data &= ~0x80;
-
-	if ( m_msm6376->busy_r() ) data |= 0x40;
-	else                       data &= ~0x40;
-
-	return data | m_expansion_latch;
-}
-
-WRITE_LINE_MEMBER(mpu4_state::pia_gb_ca2_w)
-{
-	LOG_SS(("%s: GAMEBOARD: OKI RESET data = %02X\n", machine().describe_context(), state));
-//  reset line
-}
-
-WRITE_LINE_MEMBER(mpu4_state::pia_gb_cb2_w)
+void mpu4_state::pia_gb_cb2_w(int state)
 {
 	// Some BWB games use this to drive the bankswitching
 	// should the regular bankswitch still work in these cases?
@@ -1262,52 +1211,6 @@ WRITE_LINE_MEMBER(mpu4_state::pia_gb_cb2_w)
 	{
 		m_pageval = state;
 		m_bank1->set_entry((m_pageval + (m_pageset ? 4 : 0)) & m_numbanks);
-	}
-}
-
-//Sampled sound timer
-/*
-The MSM6376 sound chip is configured in a slightly strange way, to enable dynamic
-sample rate changes (8Khz, 10.6 Khz, 16 KHz) by varying the clock.
-According to the BwB programmer's guide, the formula is:
-MSM6376 clock frequency:-
-freq = (1720000/((t3L+1)(t3H+1)))*[(t3H(T3L+1)+1)/(2(t1+1))]
-where [] means rounded up integer,
-t3L is the LSB of Clock 3,
-t3H is the MSB of Clock 3,
-and t1 is the initial value in clock 1.
-*/
-
-//O3 -> G1  O1 -> c2 o2 -> c1
-
-/* This is a bit of a cheat - since we don't clock into the OKI chip directly, we need to
-calculate the oscillation frequency in advance. We're running the timer for interrupt
-purposes, but the frequency calculation is done by plucking the values out as they are written.*/
-void mpu4_state::ic3ss_w(offs_t offset, uint8_t data)
-{
-	m_ptm_ic3ss->write(offset, data);
-
-	if (offset == 3)
-	{
-		m_t1 = data;
-	}
-	if (offset == 6)
-	{
-		m_t3h = data;
-	}
-	if (offset == 7)
-	{
-		m_t3l = data;
-	}
-
-	float const num = float(1'720'000) / ((m_t3l + 1) * (m_t3h + 1));
-	float const denom = std::ceil(float(m_t3h * (m_t3l + 1) + 1) / (2 * (m_t1 + 1))); //need to round up, this gives same precision as chip
-
-	int const freq = int(num * denom);
-
-	if (freq)
-	{
-		m_msm6376->set_unscaled_clock(freq);
 	}
 }
 
@@ -1958,16 +1861,15 @@ INPUT_PORTS_START( grtecp )
 INPUT_PORTS_END
 
 
-
 /* Common configurations */
 
 void mpu4_state::mpu4_install_mod4oki_space(address_space &space)
 {
-	pia6821_device *const pia_ic4ss = subdevice<pia6821_device>("pia_ic4ss");
+	space.install_readwrite_handler(0x0880, 0x0883, read8sm_delegate(*m_okicard, FUNC(mpu4_oki_sampled_sound::ic4_read)), write8sm_delegate(*m_okicard, FUNC(mpu4_oki_sampled_sound::ic4_write)));
 
-	space.install_readwrite_handler(0x0880, 0x0883, read8sm_delegate(*pia_ic4ss, FUNC(pia6821_device::read)), write8sm_delegate(*pia_ic4ss, FUNC(pia6821_device::write)));
-	space.install_read_handler(0x08c0, 0x08c7, read8sm_delegate(*m_ptm_ic3ss, FUNC(ptm6840_device::read)));
-	space.install_write_handler(0x08c0, 0x08c7, write8sm_delegate(*this, FUNC(mpu4_state::ic3ss_w)));
+	space.install_read_handler(0x08c0, 0x08c7, read8sm_delegate(*m_okicard, FUNC(mpu4_oki_sampled_sound::ic3_read)));
+	space.install_write_handler(0x08c0, 0x08c7, write8sm_delegate(*m_okicard, FUNC(mpu4_oki_sampled_sound::ic3_write)));
+
 }
 
 
@@ -1978,6 +1880,7 @@ void mpu4_state::mpu4_config_common()
 	m_mpu4leds.resolve();
 	m_digits.resolve();
 	m_triacs.resolve();
+	m_flutterbox.resolve();
 
 	m_ic24_timer = timer_alloc(FUNC(mpu4_state::update_ic24), this);
 
@@ -1997,8 +1900,6 @@ void mpu4_state::mpu4_config_common()
 
 	save_item(NAME( m_reel_flag ));
 	save_item(NAME( m_ic23_active ));
-	save_item(NAME( m_expansion_latch ));
-	save_item(NAME( m_global_volume ));
 	save_item(NAME( m_input_strobe ));
 	save_item(NAME( m_lamp_strobe ));
 	save_item(NAME( m_lamp_strobe2 ));
@@ -2032,9 +1933,6 @@ void mpu4_state::mpu4_config_common()
 	save_item(NAME( m_hopper_type ));
 	save_item(NAME( m_reels ));
 	save_item(NAME( m_chrdata ));
-	save_item(NAME( m_t1 ));
-	save_item(NAME( m_t3l ));
-	save_item(NAME( m_t3h ));
 	save_item(NAME( m_serial_output ));
 
 	save_item(NAME( m_numbanks ));
@@ -2336,6 +2234,11 @@ void mpu4_state::tr_over(machine_config &config)
 	m_overcurrent_detect = true;
 }
 
+void mpu4_state::tr_lvdoff(machine_config &config)
+{
+	m_low_volt_detect = false;
+}
+
 void mpu4_state::tr_p4l(machine_config &config)
 {
 	m_use_pia4_porta_leds = true;
@@ -2360,7 +2263,7 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_6840ptm->o3_callback().set(FUNC(mpu4_state::ic2_o3_callback));
 	m_6840ptm->irq_callback().set(FUNC(mpu4_state::cpu0_irq));
 
-	PIA6821(config, m_pia3, 0);
+	PIA6821(config, m_pia3);
 	m_pia3->writepa_handler().set(FUNC(mpu4_state::pia_ic3_porta_w));
 	m_pia3->writepb_handler().set(FUNC(mpu4_state::pia_ic3_portb_w));
 	m_pia3->ca2_handler().set(FUNC(mpu4_state::pia_ic3_ca2_w));
@@ -2368,7 +2271,7 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_pia3->irqa_handler().set(FUNC(mpu4_state::cpu0_irq));
 	m_pia3->irqb_handler().set(FUNC(mpu4_state::cpu0_irq));
 
-	PIA6821(config, m_pia4, 0);
+	PIA6821(config, m_pia4);
 	m_pia4->readpb_handler().set(FUNC(mpu4_state::pia_ic4_portb_r));
 	m_pia4->writepa_handler().set(FUNC(mpu4_state::pia_ic4_porta_w));
 	m_pia4->writepb_handler().set(FUNC(mpu4_state::pia_ic4_portb_w));
@@ -2377,7 +2280,7 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_pia4->irqa_handler().set(FUNC(mpu4_state::cpu0_irq));
 	m_pia4->irqb_handler().set(FUNC(mpu4_state::cpu0_irq));
 
-	PIA6821(config, m_pia5, 0);
+	PIA6821(config, m_pia5);
 	m_pia5->readpa_handler().set(FUNC(mpu4_state::pia_ic5_porta_r));
 	m_pia5->readpb_handler().set(FUNC(mpu4_state::pia_ic5_portb_r));
 	m_pia5->writepa_handler().set(FUNC(mpu4_state::pia_ic5_porta_w));
@@ -2388,7 +2291,7 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_pia5->irqb_handler().set(FUNC(mpu4_state::cpu0_irq));
 	m_pia5->set_port_a_input_overrides_output_mask(0x40); // needed for m4madhse
 
-	PIA6821(config, m_pia6, 0);
+	PIA6821(config, m_pia6);
 	m_pia6->writepa_handler().set(FUNC(mpu4_state::pia_ic6_porta_w));
 	m_pia6->writepb_handler().set(FUNC(mpu4_state::pia_ic6_portb_w));
 	m_pia6->ca2_handler().set(FUNC(mpu4_state::pia_ic6_ca2_w));
@@ -2396,7 +2299,7 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_pia6->irqa_handler().set(FUNC(mpu4_state::cpu0_irq));
 	m_pia6->irqb_handler().set(FUNC(mpu4_state::cpu0_irq));
 
-	PIA6821(config, m_pia7, 0);
+	PIA6821(config, m_pia7);
 	m_pia7->readpb_handler().set(FUNC(mpu4_state::pia_ic7_portb_r));
 	m_pia7->writepa_handler().set(FUNC(mpu4_state::pia_ic7_porta_w));
 	m_pia7->writepb_handler().set(FUNC(mpu4_state::pia_ic7_portb_w));
@@ -2405,7 +2308,7 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_pia7->irqa_handler().set(FUNC(mpu4_state::cpu0_irq));
 	m_pia7->irqb_handler().set(FUNC(mpu4_state::cpu0_irq));
 
-	PIA6821(config, m_pia8, 0);
+	PIA6821(config, m_pia8);
 	m_pia8->readpa_handler().set(FUNC(mpu4_state::pia_ic8_porta_r));
 	m_pia8->writepb_handler().set(FUNC(mpu4_state::pia_ic8_portb_w));
 	m_pia8->ca2_handler().set(FUNC(mpu4_state::pia_ic8_ca2_w));
@@ -2419,22 +2322,12 @@ void mpu4_state::mpu4_common(machine_config &config)
 	m_dataport->rxd_handler().set(FUNC(mpu4_state::dataport_rxd));
 
 	HOPPER(config, m_hopper1, attotime::from_msec(100), TICKET_MOTOR_ACTIVE_HIGH, TICKET_STATUS_ACTIVE_HIGH);
-}
 
-void mpu4_state::mpu4_common2(machine_config &config)
-{
-	PTM6840(config, m_ptm_ic3ss, MPU4_MASTER_CLOCK / 4);
-	m_ptm_ic3ss->set_external_clocks(0, 0, 0);
-	m_ptm_ic3ss->o1_callback().set("ptm_ic3ss", FUNC(ptm6840_device::set_c2));
-	m_ptm_ic3ss->o2_callback().set("ptm_ic3ss", FUNC(ptm6840_device::set_c1));
-	m_ptm_ic3ss->o3_callback().set("ptm_ic3ss", FUNC(ptm6840_device::set_g1));
 
-	PIA6821(config, m_pia_ic4ss, 0);
-	m_pia_ic4ss->readpb_handler().set(FUNC(mpu4_state::pia_gb_portb_r));
-	m_pia_ic4ss->writepa_handler().set(FUNC(mpu4_state::pia_gb_porta_w));
-	m_pia_ic4ss->writepb_handler().set(FUNC(mpu4_state::pia_gb_portb_w));
-	m_pia_ic4ss->ca2_handler().set(FUNC(mpu4_state::pia_gb_ca2_w));
-	m_pia_ic4ss->cb2_handler().set(FUNC(mpu4_state::pia_gb_cb2_w));
+	SPEAKER(config, "mono").front_center();
+
+	DAC_1BIT(config, m_alarmdac, 0);
+	m_alarmdac->add_route(ALL_OUTPUTS, "mono", 0.50);
 }
 
 /***********************************************************************************************
@@ -2452,8 +2345,6 @@ void mpu4_state::mpu4base(machine_config &config)
 
 	mpu4_common(config);
 
-	SPEAKER(config, "lspeaker").front_left();
-	SPEAKER(config, "rspeaker").front_right();
 
 	NVRAM(config, "nvram", nvram_device::DEFAULT_ALL_0);
 
@@ -2474,10 +2365,10 @@ void mpu4_state::mod2_f(machine_config &config)
 {
 	mpu4base(config);
 	AY8913(config, m_ay8913, MPU4_MASTER_CLOCK/4);
+
 	m_ay8913->set_flags(AY8910_SINGLE_OUTPUT);
 	m_ay8913->set_resistors_load(820, 0, 0);
-	m_ay8913->add_route(ALL_OUTPUTS, "lspeaker", 1.0);
-	m_ay8913->add_route(ALL_OUTPUTS, "rspeaker", 1.0);
+	m_ay8913->add_route(ALL_OUTPUTS, "mono", 1.0);
 }
 
 void mpu4_state::mod2_no_bacta_f(machine_config &config)
@@ -2503,7 +2394,7 @@ void mpu4_state::mod2_cheatchr_f(machine_config &config)
 
   Configs for Mod4 with OKI
 
-  TODO: mod4oki should eventually become a subclass
+  TODO: OKI is its own device, should mod4oki eventually become a subclass
 
 ***********************************************************************************************/
 
@@ -2514,11 +2405,11 @@ void mpu4_state::mod4oki_f(machine_config &config)
 	mpu4base(config);
 	MCFG_MACHINE_START_OVERRIDE(mpu4_state, mpu4oki)
 
-	mpu4_common2(config);
+	MPU4_OKI_SAMPLED_SOUND(config, m_okicard, MPU4_MASTER_CLOCK/4);
+	m_okicard->add_route(ALL_OUTPUTS, "mono", 1.0);
 
-	OKIM6376(config, m_msm6376, 128000);     //Adjusted by IC3, default to 16KHz sample. Can also be 85430 at 10.5KHz and 64000 at 8KHz
-	m_msm6376->add_route(ALL_OUTPUTS, "lspeaker", 1.0);
-	m_msm6376->add_route(ALL_OUTPUTS, "rspeaker", 1.0);
+	m_okicard->cb2_handler().set(FUNC(mpu4_state::pia_gb_cb2_w));
+
 }
 
 void mpu4_state::mod4oki_no_bacta_f(machine_config &config)

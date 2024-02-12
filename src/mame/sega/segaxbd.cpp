@@ -454,7 +454,7 @@ const auto SOUND_CLOCK = XTAL(16'000'000);
 //  the timer chip
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER(segaxbd_state::timer_irq_w)
+void segaxbd_state::timer_irq_w(int state)
 {
 	// set/clear the timer IRQ
 	m_timer_irq_state = (state == ASSERT_LINE);
@@ -813,7 +813,7 @@ void segaxbd_state::update_main_irqs()
 //  main 68000 is reset
 //-------------------------------------------------
 
-WRITE_LINE_MEMBER(segaxbd_state::m68k_reset_callback)
+void segaxbd_state::m68k_reset_callback(int state)
 {
 	m_subcpu->pulse_input_line(INPUT_LINE_RESET, attotime::zero);
 	machine().scheduler().perfect_quantum(attotime::from_usec(100));
@@ -2090,7 +2090,7 @@ ROM_END
 //
 ROM_START( aburner2 )
 	ROM_REGION( 0x80000, "mainpcb:maincpu", 0 ) // 68000 code
-	ROM_LOAD16_BYTE( "epr-11107.58",  0x00000, 0x20000, CRC(6d87bab7) SHA1(ab34fe78f1f216037b3e3dca3e61f1b31c05cedf) )
+	ROM_LOAD16_BYTE( "epr-11107.58", 0x00000, 0x20000, CRC(6d87bab7) SHA1(ab34fe78f1f216037b3e3dca3e61f1b31c05cedf) )
 	ROM_LOAD16_BYTE( "epr-11108.63", 0x00001, 0x20000, CRC(202a3e1d) SHA1(cf2018bbad366de4b222eae35942636ca68aa581) )
 
 	ROM_REGION( 0x80000, "mainpcb:subcpu", 0 ) // 2nd 68000 code
@@ -4708,10 +4708,10 @@ void segaxbd_new_state_double::init_gprider_double()
 	m_mainpcb->install_gprider();
 	m_subpcb->install_gprider();
 
-	m_mainpcb->m_maincpu->space(AS_PROGRAM).install_read_handler(0x2F0000, 0x2F003f, read16sm_delegate(*this, FUNC(segaxbd_new_state_double::shareram1_r)));
-	m_mainpcb->m_maincpu->space(AS_PROGRAM).install_write_handler(0x2F0000, 0x2F003f, write16s_delegate(*this, FUNC(segaxbd_new_state_double::shareram1_w)));
-	m_subpcb->m_maincpu->space(AS_PROGRAM).install_read_handler(0x2F0000, 0x2F003f, read16sm_delegate(*this, FUNC(segaxbd_new_state_double::shareram2_r)));
-	m_subpcb->m_maincpu->space(AS_PROGRAM).install_write_handler(0x2F0000, 0x2F003f, write16s_delegate(*this, FUNC(segaxbd_new_state_double::shareram2_w)));
+	m_mainpcb->m_maincpu->space(AS_PROGRAM).install_read_handler(0x2f0000, 0x2f003f, read16sm_delegate(*this, FUNC(segaxbd_new_state_double::shareram1_r)));
+	m_mainpcb->m_maincpu->space(AS_PROGRAM).install_write_handler(0x2f0000, 0x2f003f, write16s_delegate(*this, FUNC(segaxbd_new_state_double::shareram1_w)));
+	m_subpcb->m_maincpu->space(AS_PROGRAM).install_read_handler(0x2f0000, 0x2f003f, read16sm_delegate(*this, FUNC(segaxbd_new_state_double::shareram2_r)));
+	m_subpcb->m_maincpu->space(AS_PROGRAM).install_write_handler(0x2f0000, 0x2f003f, write16s_delegate(*this, FUNC(segaxbd_new_state_double::shareram2_w)));
 }
 
 
