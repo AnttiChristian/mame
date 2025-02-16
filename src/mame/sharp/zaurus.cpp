@@ -1401,7 +1401,6 @@ Note:
 
 #include "emu.h"
 #include "cpu/arm7/arm7.h"
-#include "cpu/arm7/arm7core.h"
 #include "machine/locomo.h"
 #include "machine/pxa255.h"
 #include "machine/sa1110.h"
@@ -1417,8 +1416,7 @@ Note:
 #define PXA255_CLOCK 400000000
 #define PXA270_CLOCK 416000000
 
-namespace
-{
+namespace {
 
 class zaurus_state : public driver_device
 {
@@ -1431,8 +1429,8 @@ public:
 
 protected:
 	// driver_device overrides
-	virtual void machine_start() override;
-	virtual void machine_reset() override;
+	virtual void machine_start() override ATTR_COLD;
+	virtual void machine_reset() override ATTR_COLD;
 
 	// devices
 	required_device<cpu_device> m_maincpu;
@@ -1455,7 +1453,7 @@ public:
 private:
 	virtual void device_reset_after_children() override;
 
-	void main_map(address_map &map);
+	void main_map(address_map &map) ATTR_COLD;
 
 	required_device<sa1110_periphs_device> m_sa_periphs;
 	required_device<locomo_device> m_locomo;
@@ -1480,7 +1478,7 @@ public:
 	DECLARE_INPUT_CHANGED_MEMBER( system_start );
 
 private:
-	void main_map(address_map &map);
+	void main_map(address_map &map) ATTR_COLD;
 
 	required_device<pxa255_periphs_device> m_pxa_periphs;
 	required_ioport m_power;
@@ -1520,7 +1518,7 @@ INPUT_PORTS_END
 
 static INPUT_PORTS_START( zaurus_pxa )
 	PORT_START("PWR")
-	PORT_BIT( 0x00000001, IP_ACTIVE_HIGH, IPT_START1 ) PORT_NAME("Start System") PORT_CHANGED_MEMBER(DEVICE_SELF, zaurus_pxa_state, system_start, 0)
+	PORT_BIT( 0x00000001, IP_ACTIVE_HIGH, IPT_START1 ) PORT_NAME("Start System") PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(zaurus_pxa_state::system_start), 0)
 INPUT_PORTS_END
 
 void zaurus_state::machine_start()
@@ -1580,9 +1578,9 @@ void zaurus_pxa_state::zaurus_pxa270(machine_config &config)
 
 ROM_START( zsl5500 )
 	ROM_REGION32_LE( 0x1000000, "firmware", ROMREGION_ERASE00 )
-	ROM_SYSTEM_BIOS( 0, "2.58", "OS Pack 2.58" ) \
+	ROM_SYSTEM_BIOS( 0, "2.58", "OS Pack 2.58" )
 	ROMX_LOAD( "ospack-2.58", 0x0000000, 0x1000000, CRC(31c4d3ef) SHA1(a3b67fb45160bdb990e34dca5c389ed345c000c6), ROM_BIOS(0) )
-	ROM_SYSTEM_BIOS( 1, "3.10", "OS Pack 3.10" ) \
+	ROM_SYSTEM_BIOS( 1, "3.10", "OS Pack 3.10" )
 	ROMX_LOAD( "ospack-3.10", 0x0000000, 0x1000000, CRC(d4b28f84) SHA1(fb7839ccde92f71fd80c4e04718783e684010398), ROM_BIOS(1) )
 ROM_END
 
@@ -1619,10 +1617,10 @@ ROM_END
 
 } // anonymous namespace
 
-COMP( 2002, zsl5500,  0, 0, zaurus_sa1110, zaurus_sa,  zaurus_sa_state,  empty_init, "Sharp", "Zaurus SL-5500 \"Collie\"",           MACHINE_IS_SKELETON )
-COMP( 2002, zslc500,  0, 0, zaurus_pxa250, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C500",                      MACHINE_IS_SKELETON )
-COMP( 2002, zsl5600,  0, 0, zaurus_pxa250, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-5600 / SL-B500 \"Poodle\"", MACHINE_IS_SKELETON )
-COMP( 2003, zslc750,  0, 0, zaurus_pxa255, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C750 \"Shepherd\" (Japan)", MACHINE_IS_SKELETON )
-COMP( 2004, zslc760,  0, 0, zaurus_pxa255, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C760 \"Husky\" (Japan)",    MACHINE_IS_SKELETON )
-COMP( 200?, zslc3000, 0, 0, zaurus_pxa270, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C3000 \"Spitz\" (Japan)",   MACHINE_IS_SKELETON )
-COMP( 200?, zslc1000, 0, 0, zaurus_pxa270, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C3000 \"Akita\" (Japan)",   MACHINE_IS_SKELETON )
+COMP( 2002, zsl5500,  0, 0, zaurus_sa1110, zaurus_sa,  zaurus_sa_state,  empty_init, "Sharp", "Zaurus SL-5500 \"Collie\"",           MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+COMP( 2002, zslc500,  0, 0, zaurus_pxa250, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C500",                      MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+COMP( 2002, zsl5600,  0, 0, zaurus_pxa250, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-5600 / SL-B500 \"Poodle\"", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+COMP( 2003, zslc750,  0, 0, zaurus_pxa255, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C750 \"Shepherd\" (Japan)", MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+COMP( 2004, zslc760,  0, 0, zaurus_pxa255, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C760 \"Husky\" (Japan)",    MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+COMP( 200?, zslc3000, 0, 0, zaurus_pxa270, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C3000 \"Spitz\" (Japan)",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
+COMP( 200?, zslc1000, 0, 0, zaurus_pxa270, zaurus_pxa, zaurus_pxa_state, empty_init, "Sharp", "Zaurus SL-C3000 \"Akita\" (Japan)",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING )

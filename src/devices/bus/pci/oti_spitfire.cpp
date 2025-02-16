@@ -25,7 +25,7 @@ TODO:
 
 //OTI-64105
 //OTI-64107
-DEFINE_DEVICE_TYPE(OTI64111_PCI, oti64111_pci_device,   "oti64111_pci",   "OTI-64111 \"Spitfire\" PCI card")
+DEFINE_DEVICE_TYPE(OTI64111_PCI, oti64111_pci_device,   "oti64111_pci",   "OTI-64111 \"Spitfire\"")
 //OTI-64217
 //OTI-64317
 
@@ -72,13 +72,15 @@ void oti64111_pci_device::device_start()
 
 	add_map(        256, M_MEM, FUNC(oti64111_pci_device::mmio_map));
 	add_map(8*1024*1024, M_MEM, FUNC(oti64111_pci_device::vram_aperture_map));
-	add_map(        256, M_MEM, FUNC(oti64111_pci_device::extio_map));
+	add_map(        256, M_IO,  FUNC(oti64111_pci_device::extio_map));
 
 	add_rom((u8 *)m_vga_rom->base(), 0x8000);
 	expansion_rom_base = 0xc0000;
 
 	// INTA#
 	intr_pin = 1;
+
+	// TODO: (default?) min_gnt = 0xff, max_lat = 0x01
 }
 
 void oti64111_pci_device::device_reset()
@@ -100,15 +102,18 @@ void oti64111_pci_device::config_map(address_map &map)
 
 void oti64111_pci_device::mmio_map(address_map &map)
 {
+	map(0x00, 0x7f).rw(m_svga, FUNC(oak_oti111_vga_device::xga_read), FUNC(oak_oti111_vga_device::xga_write));
+	map(0x80, 0xbf).m(m_svga, FUNC(oak_oti111_vga_device::multimedia_map));
 }
 
 void oti64111_pci_device::vram_aperture_map(address_map &map)
 {
-//	map(0x000000, 0x7fffff).rw(m_svga, FUNC(oak_oti111_vga_device::mem_linear_r), FUNC(oak_oti111_vga_device::mem_linear_w));
+	map(0x000000, 0x7fffff).rw(m_svga, FUNC(oak_oti111_vga_device::mem_linear_r), FUNC(oak_oti111_vga_device::mem_linear_w));
 }
 
 void oti64111_pci_device::extio_map(address_map &map)
 {
+	map(0x00e0, 0x00ef).m(m_svga, FUNC(oak_oti111_vga_device::ramdac_mmio_map));
 }
 
 void oti64111_pci_device::legacy_io_map(address_map &map)

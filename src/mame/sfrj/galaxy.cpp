@@ -60,22 +60,21 @@ public:
 	void galaxyp(machine_config &config);
 
 	void init_galaxy();
-	void init_galaxyp();
 
 private:
 	uint8_t keyboard_r(offs_t offset);
 	void latch_w(uint8_t data);
-	void machine_start() override;
-	void machine_reset() override;
+	void machine_start() override ATTR_COLD;
+	void machine_reset() override ATTR_COLD;
 	uint32_t screen_update(screen_device &screen, bitmap_ind16 &bitmap, const rectangle &cliprect);
 	TIMER_CALLBACK_MEMBER(gal_video);
 	IRQ_CALLBACK_MEMBER(irq_callback);
 	void set_timer();
 	void setup_snapshot (const uint8_t * data, uint32_t size);
 	DECLARE_SNAPSHOT_LOAD_MEMBER(snapshot_cb);
-	void galaxy_mem(address_map &map);
-	void galaxyp_io(address_map &map);
-	void galaxyp_mem(address_map &map);
+	void galaxy_mem(address_map &map) ATTR_COLD;
+	void galaxyp_io(address_map &map) ATTR_COLD;
+	void galaxyp_mem(address_map &map) ATTR_COLD;
 
 	int m_interrupts_enabled = 0;
 	uint8_t m_latch_value = 0U;
@@ -227,15 +226,6 @@ void galaxy_state::init_galaxy()
 
 	if (m_ram->size() < (6 + 48) * 1024)
 		space.nop_readwrite( 0x2800 + m_ram->size(), 0xffff);
-}
-
-void galaxy_state::init_galaxyp()
-{
-	uint8_t *ROM = memregion("maincpu")->base();
-	ROM[0x0037] = 0x29;
-	ROM[0x03f9] = 0xcd;
-	ROM[0x03fa] = 0x00;
-	ROM[0x03fb] = 0xe0;
 }
 
 /***************************************************************************
@@ -565,7 +555,7 @@ void galaxy_state::galaxyp(machine_config &config)
 }
 
 // Original Galaksija kit came with v28 version of ROM A
-// at end of 1984 ROM B appeared and people patched their ROM A v28 
+// at end of 1984 ROM B appeared and people patched their ROM A v28
 // to make it auto boot ROM B
 // later official v29 was made to auto boot ROM B
 // chargen also include prompt char with logo of Mipro, Voja Antonic company
@@ -604,7 +594,7 @@ ROM_START (galaxyp)
 	ROM_REGION( 0x4000, "maincpu", ROMREGION_ERASEFF )
 	ROM_DEFAULT_BIOS("v29c")
 	ROM_SYSTEM_BIOS( 0, "v29c", "ROM A v29 boot ROM C" )
-	ROMX_LOAD( "rom_a_v29c.dd8", 0x0000, 0x1000, CRC(5cb8fb2a) SHA1(fdddae2b08d0dc81eb6191a92e60ac411d8150e9), ROM_BIOS(0) )	
+	ROMX_LOAD( "rom_a_v29c.dd8", 0x0000, 0x1000, CRC(5cb8fb2a) SHA1(fdddae2b08d0dc81eb6191a92e60ac411d8150e9), ROM_BIOS(0) )
 	ROM_SYSTEM_BIOS( 1, "v29",  "ROM A v29" )
 	ROMX_LOAD( "rom_a_v29.dd8",  0x0000, 0x1000, CRC(e6853bc1) SHA1(aea7a4c0c7ffe1f212f7b9faecfd728862ac6904), ROM_BIOS(1) )
 
@@ -619,4 +609,4 @@ ROM_END
 
 /*    YEAR  NAME     PARENT  COMPAT  MACHINE  INPUT    CLASS         INIT          COMPANY                                   FULLNAME */
 COMP( 1983, galaxy,  0,      0,      galaxy,  galaxy,  galaxy_state, init_galaxy,  "Voja Antonic / Elektronika inzenjering", "Galaksija",      MACHINE_SUPPORTS_SAVE )
-COMP( 1985, galaxyp, galaxy, 0,      galaxyp, galaxy,  galaxy_state, init_galaxyp, "Nenad Dunjic",                           "Galaksija plus", MACHINE_SUPPORTS_SAVE )
+COMP( 1985, galaxyp, galaxy, 0,      galaxyp, galaxy,  galaxy_state, empty_init,   "Nenad Dunjic",                           "Galaksija plus", MACHINE_SUPPORTS_SAVE )

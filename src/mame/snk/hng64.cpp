@@ -462,7 +462,7 @@ for the exact number of ROMs used per game and ROM placements.
 Games that use the LVS-DG1 cart: Road's Edge / Round Trip RV
                                  Xtreme Rally / Off Beat Racer!
                                  Beast Busters: Second Nightmare
-                                 Samurai Shodown 64 / Samurai Spirits / Pae Wang Jeon Seol 64
+                                 Samurai Shodown 64 / Samurai Spirits / Paewang Jeonseol 64
 
 Games that use the LVS-DG2 cart: Fatal Fury: Wild Ambition / Garou Densetsu: Wild Ambition
                                  Buriki One: World Grapple Tournament '99 in Tokyo
@@ -1244,7 +1244,7 @@ void hng64_state::hng_map(address_map &map)
 
 static INPUT_PORTS_START( hng64 ) // base port, for debugging
 	PORT_START("VBLANK")
-	PORT_BIT( 0xffffffff, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_VBLANK("screen")
+	PORT_BIT( 0xffffffff, IP_ACTIVE_HIGH, IPT_CUSTOM ) PORT_READ_LINE_DEVICE_MEMBER("screen", FUNC(screen_device::vblank))
 
 	PORT_START("IN0")
 	PORT_DIPNAME( 0x01, 0x01, "IN0" )

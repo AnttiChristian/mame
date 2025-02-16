@@ -174,8 +174,8 @@ public:
 	DECLARE_INPUT_CHANGED_MEMBER(coin_inserted);
 
 protected:
-	virtual void machine_start() override;
-	virtual void video_start() override;
+	virtual void machine_start() override ATTR_COLD;
+	virtual void video_start() override ATTR_COLD;
 
 private:
 	required_device<s2650_device> m_maincpu;
@@ -219,15 +219,13 @@ private:
 	void draw_sprites(bitmap_ind16 &bitmap, const rectangle &clip);
 	void sh_update();
 	SAMPLES_START_CB_MEMBER(sh_start);
-	void audio_map(address_map &map);
-	void bowl3d_main_map(address_map &map);
-	void meadows_main_map(address_map &map);
-	void minferno_data_map(address_map &map);
-	void minferno_main_map(address_map &map);
+	void audio_map(address_map &map) ATTR_COLD;
+	void bowl3d_main_map(address_map &map) ATTR_COLD;
+	void meadows_main_map(address_map &map) ATTR_COLD;
+	void minferno_data_map(address_map &map) ATTR_COLD;
+	void minferno_main_map(address_map &map) ATTR_COLD;
 };
 
-
-// audio
 
 static constexpr uint32_t BASE_CTR1 = (5'000'000 / 256);
 static constexpr uint32_t BASE_CTR2 = (5'000'000 / 32);
@@ -306,8 +304,6 @@ void meadows_state::sh_update()
 	m_latched_0c03 = m_0c03;
 }
 
-
-// video
 
 // some constants to make life easier
 static constexpr int8_t SPR_ADJUST_X = -18;
@@ -408,8 +404,6 @@ uint32_t meadows_state::screen_update(screen_device &screen, bitmap_ind16 &bitma
 		draw_sprites(bitmap, cliprect);
 	return 0;
 }
-
-// machine
 
 void meadows_state::machine_start()
 {
@@ -738,7 +732,7 @@ static INPUT_PORTS_START( meadows )
 	PORT_DIPSETTING(    0x00, DEF_STR( None ))
 
 	PORT_START("FAKE")
-	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_COIN1 ) PORT_CHANGED_MEMBER(DEVICE_SELF, meadows_state,coin_inserted, 0)
+	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_COIN1 ) PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(meadows_state::coin_inserted), 0)
 	PORT_BIT( 0x8e, IP_ACTIVE_LOW, IPT_UNUSED )
 INPUT_PORTS_END
 
@@ -788,7 +782,7 @@ static INPUT_PORTS_START( bowl3d )
 	PORT_DIPSETTING(    0x80, DEF_STR( On ) )
 
 	PORT_START("FAKE")
-	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_COIN1 ) PORT_CHANGED_MEMBER(DEVICE_SELF, meadows_state,coin_inserted, 0)
+	PORT_BIT( 0x01, IP_ACTIVE_HIGH, IPT_COIN1 ) PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(meadows_state::coin_inserted), 0)
 	PORT_BIT( 0x8e, IP_ACTIVE_LOW, IPT_UNUSED )
 INPUT_PORTS_END
 

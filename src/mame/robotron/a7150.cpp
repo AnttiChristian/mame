@@ -34,6 +34,7 @@ To do:
 
 #include "bus/multibus/multibus.h"
 #include "bus/multibus/robotron_k7070.h"
+#include "bus/multibus/robotron_k7071.h"
 #include "bus/rs232/rs232.h"
 #include "cpu/i86/i86.h"
 #include "machine/i8087.h"
@@ -52,7 +53,7 @@ class a7150_state : public driver_device
 public:
 	a7150_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag)
-		, m_bus(*this, "slot")
+		, m_bus(*this, "bus")
 		, m_maincpu(*this, "maincpu")
 		, m_uart8251(*this, "uart8251")
 		, m_pit8253(*this, "pit8253")
@@ -63,8 +64,8 @@ public:
 	void a7150(machine_config &config);
 
 protected:
-	virtual void machine_reset() override;
-	virtual void machine_start() override;
+	virtual void machine_reset() override ATTR_COLD;
+	virtual void machine_start() override ATTR_COLD;
 
 private:
 	void ppi_c_w(uint8_t data);
@@ -78,8 +79,8 @@ private:
 	required_device<pic8259_device> m_pic8259;
 	required_device<rs232_port_device> m_rs232;
 
-	void io_map(address_map &map);
-	void mem_map(address_map &map);
+	void io_map(address_map &map) ATTR_COLD;
+	void mem_map(address_map &map) ATTR_COLD;
 
 	u8 bus_pio_r(offs_t offset) { return m_bus->space(AS_IO).read_byte(offset); }
 	void bus_pio_w(offs_t offset, u8 data) { m_bus->space(AS_IO).write_byte(offset, data); }
@@ -140,6 +141,7 @@ void a7150_state::machine_start()
 static void a7150_cards(device_slot_interface &device)
 {
 	device.option_add("kgs", ROBOTRON_K7070);
+	device.option_add("abs", ROBOTRON_K7071);
 }
 
 /*
@@ -155,7 +157,7 @@ void a7150_state::a7150(machine_config &config)
 	m_bus->int_callback<1>().set(m_pic8259, FUNC(pic8259_device::ir1_w));
 	m_bus->int_callback<6>().set(m_pic8259, FUNC(pic8259_device::ir6_w));
 	m_bus->int_callback<7>().set(m_pic8259, FUNC(pic8259_device::ir7_w));
-	MULTIBUS_SLOT(config, "slot:1", m_bus, a7150_cards, "kgs", false);
+	MULTIBUS_SLOT(config, "slot1", m_bus, a7150_cards, "kgs", false);
 
 	// ZRE board
 

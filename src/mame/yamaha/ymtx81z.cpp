@@ -37,17 +37,17 @@ public:
 	void tx81z(machine_config &config);
 
 protected:
-	virtual void machine_start() override;
+	virtual void machine_start() override ATTR_COLD;
 
 private:
 	HD44780_PIXEL_UPDATE(lcd_pixel_update);
 	void palette_init(palette_device &palette);
 
-	void mem_map(address_map &map);
+	void mem_map(address_map &map) ATTR_COLD;
 
 	u8 p2_r();
 	void midi_rx_r(int state) { m_rx_data = state; }
-	void midiclock_w(int state) { if (state) m_maincpu->m6801_clock_serial(); }
+	void midiclock_w(int state) { if (state) m_maincpu->clock_serial(); }
 
 	required_device<hd6303x_cpu_device> m_maincpu;
 	required_ioport m_port2;
@@ -187,4 +187,4 @@ ROM_END
 } // anonymous namespace
 
 
-SYST(1987, tx81z, 0, 0, tx81z, tx81z, ymtx81z_state, empty_init, "Yamaha", "TX81Z FM Tone Generator", MACHINE_IMPERFECT_SOUND | MACHINE_CLICKABLE_ARTWORK)
+SYST(1987, tx81z, 0, 0, tx81z, tx81z, ymtx81z_state, empty_init, "Yamaha", "TX81Z FM Tone Generator", MACHINE_IMPERFECT_SOUND)

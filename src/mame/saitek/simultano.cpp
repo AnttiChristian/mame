@@ -31,8 +31,8 @@ TODO:
 
 #include "bus/generic/slot.h"
 #include "bus/generic/carts.h"
-#include "cpu/m6502/m65c02.h"
 #include "cpu/m6502/r65c02.h"
+#include "cpu/m6502/w65c02.h"
 #include "machine/nvram.h"
 #include "machine/sensorboard.h"
 #include "sound/dac.h"
@@ -57,7 +57,7 @@ public:
 		m_maincpu(*this, "maincpu"),
 		m_rombank(*this, "rombank"),
 		m_board(*this, "board"),
-		m_display(*this, "display"),
+		m_led_pwm(*this, "led_pwm"),
 		m_lcd_pwm(*this, "lcd_pwm"),
 		m_lcd(*this, "lcd"),
 		m_dac(*this, "dac"),
@@ -71,18 +71,18 @@ public:
 	void cc2150(machine_config &config);
 
 protected:
-	virtual void machine_start() override;
-	virtual void machine_reset() override;
+	virtual void machine_start() override ATTR_COLD;
+	virtual void machine_reset() override ATTR_COLD;
 
 private:
 	// devices/pointers
 	required_device<cpu_device> m_maincpu;
 	memory_view m_rombank;
 	required_device<sensorboard_device> m_board;
-	required_device<pwm_display_device> m_display;
+	required_device<pwm_display_device> m_led_pwm;
 	required_device<pwm_display_device> m_lcd_pwm;
 	required_device<sed1502_device> m_lcd;
-	required_device<dac_bit_interface> m_dac;
+	required_device<dac_1bit_device> m_dac;
 	required_ioport_array<8+1> m_inputs;
 	output_finder<16, 34> m_out_lcd;
 
@@ -90,8 +90,8 @@ private:
 	u8 m_select = 0;
 	u8 m_control = 0;
 
-	void simultano_map(address_map &map);
-	void cc2150_map(address_map &map);
+	void simultano_map(address_map &map) ATTR_COLD;
+	void cc2150_map(address_map &map) ATTR_COLD;
 
 	void power_off();
 	void lcd_pwm_w(offs_t offset, u8 data);
@@ -147,7 +147,7 @@ void simultano_state::power_off()
 	for (int i = 0; i < 0x80; i++)
 		m_lcd->write(i, 0);
 
-	m_display->clear();
+	m_led_pwm->clear();
 	m_lcd_pwm->clear();
 }
 
@@ -180,8 +180,8 @@ void simultano_state::select_w(u8 data)
 	// d0-d3: input/chessboard mux
 	// d6,d7: side panel led mux
 	// d4,d5: led data
-	m_display->matrix_partial(0, 2, data >> 4 & 3, 1 << (data & 0xf));
-	m_display->matrix_partial(2, 2, data >> 6 & 3, ~data >> 4 & 3);
+	m_led_pwm->matrix_partial(0, 2, data >> 4 & 3, 1 << (data & 0xf));
+	m_led_pwm->matrix_partial(2, 2, data >> 6 & 3, ~data >> 4 & 3);
 	m_select = data;
 }
 
@@ -298,7 +298,7 @@ static INPUT_PORTS_START( simultano )
 	PORT_CONFSETTING(    0x01, DEF_STR( Normal ) )
 
 	PORT_START("RESET")
-	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYPAD) PORT_CODE(KEYCODE_1) PORT_CHANGED_MEMBER(DEVICE_SELF, simultano_state, go_button, 0) PORT_NAME("Go")
+	PORT_BIT(0x01, IP_ACTIVE_HIGH, IPT_KEYPAD) PORT_CODE(KEYCODE_1) PORT_CHANGED_MEMBER(DEVICE_SELF, FUNC(simultano_state::go_button), 0) PORT_NAME("Go")
 INPUT_PORTS_END
 
 static INPUT_PORTS_START( cc2150 )
@@ -339,7 +339,7 @@ void simultano_state::cc2150(machine_config &config)
 	screen.set_size(873/2, 1080/2);
 	screen.set_visarea_full();
 
-	PWM_DISPLAY(config, m_display).set_size(2+2, 8);
+	PWM_DISPLAY(config, m_led_pwm).set_size(2+2, 8);
 	config.set_default_layout(layout_saitek_simultano);
 
 	// sound hardware
@@ -352,7 +352,7 @@ void simultano_state::simultano(machine_config &config)
 	cc2150(config);
 
 	// basic machine hardware
-	M65C02(config.replace(), m_maincpu, 5_MHz_XTAL);
+	W65C02(config.replace(), m_maincpu, 5_MHz_XTAL);
 	m_maincpu->set_addrmap(AS_PROGRAM, &simultano_state::simultano_map);
 	m_maincpu->set_periodic_int(FUNC(simultano_state::irq0_line_hold), attotime::from_hz(76)); // approximation
 
@@ -403,7 +403,7 @@ ROM_END
 *******************************************************************************/
 
 //    YEAR  NAME        PARENT     COMPAT  MACHINE    INPUT      CLASS            INIT        COMPANY, FULLNAME, FLAGS
-SYST( 1989, simultano,  0,         0,      simultano, simultano, simultano_state, empty_init, "Saitek", "Kasparov Simultano (ver. C)", MACHINE_SUPPORTS_SAVE | MACHINE_CLICKABLE_ARTWORK )
-SYST( 1989, simultanoa, simultano, 0,      simultano, simultano, simultano_state, empty_init, "Saitek", "Kasparov Simultano (ver. B)", MACHINE_SUPPORTS_SAVE | MACHINE_CLICKABLE_ARTWORK )
+SYST( 1989, simultano,  0,         0,      simultano, simultano, simultano_state, empty_init, "Saitek / Heuristic Software", "Kasparov Simultano (ver. C)", MACHINE_SUPPORTS_SAVE )
+SYST( 1989, simultanoa, simultano, 0,      simultano, simultano, simultano_state, empty_init, "Saitek / Heuristic Software", "Kasparov Simultano (ver. B)", MACHINE_SUPPORTS_SAVE )
 
-SYST( 1988, cc2150,     simultano, 0,      cc2150,    cc2150,    simultano_state, empty_init, "Tandy Corporation / Saitek", "Chess Champion 2150", MACHINE_SUPPORTS_SAVE | MACHINE_CLICKABLE_ARTWORK )
+SYST( 1988, cc2150,     simultano, 0,      cc2150,    cc2150,    simultano_state, empty_init, "Tandy Corporation / Saitek / Heuristic Software", "Chess Champion 2150", MACHINE_SUPPORTS_SAVE )

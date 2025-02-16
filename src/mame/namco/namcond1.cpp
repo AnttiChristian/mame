@@ -231,8 +231,8 @@ public:
 	void namcond1(machine_config &config);
 
 protected:
-	virtual void machine_start() override;
-	virtual void machine_reset() override;
+	virtual void machine_start() override ATTR_COLD;
+	virtual void machine_reset() override ATTR_COLD;
 
 private:
 	required_device<cpu_device> m_maincpu;
@@ -242,19 +242,19 @@ private:
 	required_shared_ptr<uint16_t> m_shared_ram;
 
 	uint8_t m_h8_irq5_enabled = 0;
-	uint16_t m_p8 = 0;
+	uint8_t m_p8 = 0;
 
-	uint16_t mcu_p7_read();
-	uint16_t mcu_pa_read();
-	void mcu_pa_write(uint16_t data);
+	uint8_t mcu_p7_read();
+	uint8_t mcu_pa_read();
+	void mcu_pa_write(uint8_t data);
 	uint16_t cuskey_r(offs_t offset);
 	void cuskey_w(offs_t offset, uint16_t data);
 	uint16_t printer_r();
 
 	INTERRUPT_GEN_MEMBER(mcu_interrupt);
-	void abcheck_main_map(address_map &map);
-	void main_map(address_map &map);
-	void h8rwmap(address_map &map);
+	void abcheck_main_map(address_map &map) ATTR_COLD;
+	void main_map(address_map &map) ATTR_COLD;
+	void h8rwmap(address_map &map) ATTR_COLD;
 };
 
 
@@ -441,17 +441,17 @@ static INPUT_PORTS_START( abcheck )
 INPUT_PORTS_END
 
 
-uint16_t namcond1_state::mcu_p7_read()
+uint8_t namcond1_state::mcu_p7_read()
 {
 	return 0xff;
 }
 
-uint16_t namcond1_state::mcu_pa_read()
+uint8_t namcond1_state::mcu_pa_read()
 {
 	return 0xff;
 }
 
-void namcond1_state::mcu_pa_write(uint16_t data)
+void namcond1_state::mcu_pa_write(uint8_t data)
 {
 	m_p8 = data;
 }
@@ -504,7 +504,6 @@ void namcond1_state::namcond1(machine_config &config)
 	m_mcu->read_porta().set(FUNC(namcond1_state::mcu_pa_read));
 	m_mcu->write_porta().set(FUNC(namcond1_state::mcu_pa_write));
 
-
 	config.set_maximum_quantum(attotime::from_hz(6000));
 
 	YGV608(config, m_ygv608, 0);
@@ -519,7 +518,7 @@ void namcond1_state::namcond1(machine_config &config)
 	V 261 26 224 3 0
 	*/
 	screen.set_raw(XTAL(49'152'000) / 8, 804 / 2, 108 / 2, (108 + 576) / 2, 261, 26, 26 + 224);
-	screen.set_screen_update("ygv608", FUNC(ygv608_device::update_screen));
+	screen.set_screen_update("ygv608", FUNC(ygv608_device::screen_update));
 	screen.set_palette("ygv608");
 
 	// sound hardware
@@ -554,7 +553,7 @@ ROM_START( ncv1 )
 	ROM_LOAD( "nc1sub.1c",          0x00000, 0x80000, CRC(48ea0de2) SHA1(33e57c8d084a960ccbda462d18e355de44ec7ad9) )
 
 	ROM_REGION( 0x800000, "ygv608", 0 )    // 2MB character generator
-	ROM_LOAD( "nc1cg0.10c",         0x000000, 0x200000, CRC(355e7f29) SHA1(47d92c4e28c3610a620d3c9b3be558199477f6d8) )
+	ROM_LOAD( "nc1cg0.10c",         0x000000, 0x200000, CRC(d4383199) SHA1(3263874ba838651631ad6d11afb150206de760bb) )
 	ROM_RELOAD(                     0x200000, 0x200000 )
 	ROM_RELOAD(                     0x400000, 0x200000 )
 	ROM_RELOAD(                     0x600000, 0x200000 )
@@ -572,7 +571,7 @@ ROM_START( ncv1j )
 	ROM_LOAD( "nc1sub.1c",          0x00000, 0x80000, CRC(48ea0de2) SHA1(33e57c8d084a960ccbda462d18e355de44ec7ad9) )
 
 	ROM_REGION( 0x800000, "ygv608", 0 )    // 2MB character generator
-	ROM_LOAD( "nc1cg0.10c",         0x000000, 0x200000, CRC(355e7f29) SHA1(47d92c4e28c3610a620d3c9b3be558199477f6d8) )
+	ROM_LOAD( "nc1cg0.10c",         0x000000, 0x200000, CRC(d4383199) SHA1(3263874ba838651631ad6d11afb150206de760bb) )
 	ROM_RELOAD(                     0x200000, 0x200000 )
 	ROM_RELOAD(                     0x400000, 0x200000 )
 	ROM_RELOAD(                     0x600000, 0x200000 )
@@ -590,7 +589,7 @@ ROM_START( ncv1j2 )
 	ROM_LOAD( "nc1sub.1c",          0x00000, 0x80000, CRC(48ea0de2) SHA1(33e57c8d084a960ccbda462d18e355de44ec7ad9) )
 
 	ROM_REGION( 0x800000, "ygv608", 0 )    // 2MB character generator
-	ROM_LOAD( "nc1cg0.10c",         0x000000, 0x200000, CRC(355e7f29) SHA1(47d92c4e28c3610a620d3c9b3be558199477f6d8) )
+	ROM_LOAD( "nc1cg0.10c",         0x000000, 0x200000, CRC(d4383199) SHA1(3263874ba838651631ad6d11afb150206de760bb) )
 	ROM_RELOAD(                     0x200000, 0x200000 )
 	ROM_RELOAD(                     0x400000, 0x200000 )
 	ROM_RELOAD(                     0x600000, 0x200000 )

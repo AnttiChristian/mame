@@ -20,55 +20,55 @@
 
 class h8h_device : public h8_device {
 protected:
-	h8h_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, uint32_t clock, address_map_constructor map_delegate);
+	h8h_device(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 clock, address_map_constructor map_delegate);
 
-	virtual uint32_t execute_min_cycles() const noexcept override { return 2; }
-	virtual uint32_t execute_max_cycles() const noexcept override { return 20; }
+	virtual u32 execute_min_cycles() const noexcept override { return 2; }
+	virtual u32 execute_max_cycles() const noexcept override { return 20; }
 
 	virtual std::unique_ptr<util::disasm_interface> create_disassembler() override;
 
 	virtual void do_exec_full() override;
 	virtual void do_exec_partial() override;
 
-	inline void r32_w(int reg, uint32_t val) { m_R[reg & 7] = val; m_R[(reg & 7) | 8] = val >> 16; }
-	inline uint32_t r32_r(int reg) const { return m_R[reg & 7] | (m_R[(reg & 7) | 8] << 16); }
+	inline void r32_w(int reg, u32 val) { m_R[reg & 7] = val; m_R[(reg & 7) | 8] = val >> 16; }
+	inline u32 r32_r(int reg) const { return m_R[reg & 7] | (m_R[(reg & 7) | 8] << 16); }
 
 #define O(o) void o ## _full(); void o ## _partial()
 
 	O(add_w_imm16_r16l); O(add_l_r32h_r32l); O(add_l_imm32_r32l);
 	O(adds_l_four_r32l); O(adds_l_one_r32l); O(adds_l_two_r32l);
 	O(and_w_imm16_r16l); O(and_l_r32h_r32l); O(and_l_imm32_r32l); O(and_w_r16h_r16l);
-	O(band_imm3_abs16); O(band_imm3_abs32); O(band_imm3_r32ihh);
+	O(band_imm3_r32ihh);
 	O(bcc_rel16);
-	O(bclr_imm3_abs16); O(bclr_r8h_abs16); O(bclr_imm3_abs32); O(bclr_imm3_r32ihh); O(bclr_r8h_abs32); O(bclr_r8h_r32ihh);
+	O(bclr_imm3_r32ihh); O(bclr_r8h_r32ihh);
 	O(bcs_rel16);
 	O(beq_rel16);
 	O(bf_rel16);
 	O(bge_rel16);
 	O(bgt_rel16);
 	O(bhi_rel16);
-	O(biand_imm3_abs16); O(biand_imm3_abs32); O(biand_imm3_r32ihh);
-	O(bild_imm3_abs16); O(bild_imm3_abs32); O(bild_imm3_r32ihh);
-	O(bior_imm3_abs16); O(bior_imm3_abs32); O(bior_imm3_r32ihh);
-	O(bist_imm3_abs16); O(bist_imm3_abs32); O(bist_imm3_r32ihh);
-	O(bixor_imm3_abs16); O(bixor_imm3_abs32); O(bixor_imm3_r32ihh);
-	O(bld_imm3_abs16); O(bld_imm3_abs32); O(bld_imm3_r32ihh);
+	O(biand_imm3_r32ihh);
+	O(bild_imm3_r32ihh);
+	O(bior_imm3_r32ihh);
+	O(bist_imm3_r32ihh);
+	O(bixor_imm3_r32ihh);
+	O(bld_imm3_r32ihh);
 	O(ble_rel16);
 	O(bls_rel16);
 	O(blt_rel16);
 	O(bmi_rel16);
 	O(bne_rel16);
-	O(bnot_imm3_abs16); O(bnot_r8h_abs16); O(bnot_imm3_abs32); O(bnot_imm3_r32ihh); O(bnot_r8h_abs32); O(bnot_r8h_r32ihh);
-	O(bor_imm3_abs16); O(bor_imm3_abs32); O(bor_imm3_r32ihh);
+	O(bnot_imm3_r32ihh); O(bnot_r8h_r32ihh);
+	O(bor_imm3_r32ihh);
 	O(bpl_rel16);
-	O(bset_imm3_abs16); O(bset_r8h_abs16); O(bset_imm3_abs32); O(bset_imm3_r32ihh); O(bset_r8h_abs32); O(bset_r8h_r32ihh);
+	O(bset_imm3_r32ihh); O(bset_r8h_r32ihh);
 	O(bsr_rel16); O(bsr_rel8);
-	O(bst_imm3_abs16); O(bst_imm3_abs32); O(bst_imm3_r32ihh);
+	O(bst_imm3_r32ihh);
 	O(bt_rel16);
-	O(btst_imm3_abs16); O(btst_r8h_abs16); O(btst_imm3_abs32); O(btst_imm3_r32ihh); O(btst_r8h_abs32); O(btst_r8h_r32ihh);
+	O(btst_imm3_r32ihh); O(btst_r8h_r32ihh);
 	O(bvc_rel16);
 	O(bvs_rel16);
-	O(bxor_imm3_abs16); O(bxor_imm3_abs32); O(bxor_imm3_r32ihh);
+	O(bxor_imm3_r32ihh);
 	O(cmp_w_imm16_r16l); O(cmp_l_r32h_r32l); O(cmp_l_imm32_r32l);
 	O(dec_w_one_r16l); O(dec_w_two_r16l); O(dec_l_one_r32l); O(dec_l_two_r32l);
 	O(divxs_b_r8h_r16l); O(divxs_w_r16h_r32l);

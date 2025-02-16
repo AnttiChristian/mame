@@ -4,7 +4,7 @@
 
     TIM-011 AY Card
 
-	Card created by Zoran Urosevic.
+    Card created by Zoran Urosevic.
 
 **********************************************************************/
 
@@ -25,7 +25,7 @@ static INPUT_PORTS_START(joystick)
 	PORT_BIT(0x20, IP_ACTIVE_LOW, IPT_BUTTON3)
 	PORT_BIT(0x40, IP_ACTIVE_LOW, IPT_UNUSED)
 	PORT_BIT(0x80, IP_ACTIVE_LOW, IPT_BUTTON2)
-INPUT_PORTS_END       
+INPUT_PORTS_END
 
 class tim011_aycard_device :
 	public device_t,
@@ -37,11 +37,11 @@ public:
 
 protected:
 	// device_t implementation
-	virtual void device_start() override;
-	virtual void device_reset() override;
+	virtual void device_start() override ATTR_COLD;
+	virtual void device_reset() override ATTR_COLD;
 
 	// device-level overrides
-	virtual void device_add_mconfig(machine_config &config) override;
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
 	virtual ioport_constructor device_input_ports() const override { return INPUT_PORTS_NAME(joystick); }
 
 private:

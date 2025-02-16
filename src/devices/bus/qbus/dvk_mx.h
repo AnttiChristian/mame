@@ -2,7 +2,7 @@
 // copyright-holders:Sergey Svishchev
 /***************************************************************************
 
-	DVK "MX" floppy controller (decimal ID 3.057.122)
+    DVK "MX" floppy controller (decimal ID 3.057.122)
 
 ***************************************************************************/
 
@@ -34,9 +34,9 @@ public:
 
 protected:
 	// device_t implementation
-	virtual void device_start() override;
-	virtual void device_reset() override;
-	virtual void device_add_mconfig(machine_config &config) override;
+	virtual void device_start() override ATTR_COLD;
+	virtual void device_reset() override ATTR_COLD;
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
 
 	TIMER_CALLBACK_MEMBER(update_floppy);
 	TIMER_CALLBACK_MEMBER(twokhz_tick);
@@ -101,6 +101,8 @@ private:
 	};
 
 	struct floppy_info {
+		floppy_info();
+
 		emu_timer *tm;
 		floppy_image_device *dev;
 		int id;
@@ -110,6 +112,8 @@ private:
 	};
 
 	struct live_info {
+		live_info();
+
 		attotime tm;
 		int state, next_state;
 		floppy_info *fi;

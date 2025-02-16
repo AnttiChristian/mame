@@ -14,34 +14,13 @@
 #include "sound/cdda.h"
 #include "sound/msm5205.h"
 
-#define PCE_BRAM_SIZE               0x800
-#define PCE_ADPCM_RAM_SIZE          0x10000
-#define PCE_ACARD_RAM_SIZE          0x200000
-#define PCE_CD_COMMAND_BUFFER_SIZE  0x100
-
-#define PCE_CD_IRQ_TRANSFER_READY       0x40
-#define PCE_CD_IRQ_TRANSFER_DONE        0x20
-#define PCE_CD_IRQ_BRAM                 0x10 /* ??? */
-#define PCE_CD_IRQ_SAMPLE_FULL_PLAY     0x08
-#define PCE_CD_IRQ_SAMPLE_HALF_PLAY     0x04
-
-#define PCE_CD_ADPCM_PLAY_FLAG      0x08
-#define PCE_CD_ADPCM_STOP_FLAG      0x01
-
-#define PCE_CD_DATA_FRAMES_PER_SECOND   75
-
-enum {
-	PCE_CD_CDDA_OFF = 0,
-	PCE_CD_CDDA_PLAYING,
-	PCE_CD_CDDA_PAUSED
-};
-
 
 
 // ======================> pce_cd_device
 
 class pce_cd_device : public device_t,
-					  public device_memory_interface
+					  public device_memory_interface,
+					  public device_mixer_interface
 {
 public:
 	// construction/destruction
@@ -62,12 +41,33 @@ public:
 
 protected:
 	// device-level overrides
-	virtual void device_start() override;
-	virtual void device_add_mconfig(machine_config &config) override;
-	virtual void device_reset() override;
+	virtual void device_start() override ATTR_COLD;
+	virtual void device_add_mconfig(machine_config &config) override ATTR_COLD;
+	virtual void device_reset() override ATTR_COLD;
 	virtual space_config_vector memory_space_config() const override;
 
 private:
+	static constexpr size_t PCE_BRAM_SIZE              = 0x800;
+	static constexpr size_t PCE_ADPCM_RAM_SIZE         = 0x10000;
+	static constexpr size_t PCE_CD_COMMAND_BUFFER_SIZE = 0x100;
+
+	static constexpr uint8_t PCE_CD_IRQ_TRANSFER_READY   = 0x40;
+	static constexpr uint8_t PCE_CD_IRQ_TRANSFER_DONE    = 0x20;
+	static constexpr uint8_t PCE_CD_IRQ_BRAM             = 0x10; /* ??? */
+	static constexpr uint8_t PCE_CD_IRQ_SAMPLE_FULL_PLAY = 0x08;
+	static constexpr uint8_t PCE_CD_IRQ_SAMPLE_HALF_PLAY = 0x04;
+
+	static constexpr uint8_t PCE_CD_ADPCM_PLAY_FLAG = 0x08;
+	static constexpr uint8_t PCE_CD_ADPCM_STOP_FLAG = 0x01;
+
+	static constexpr int PCE_CD_DATA_FRAMES_PER_SECOND = 75;
+
+	enum {
+		PCE_CD_CDDA_OFF = 0,
+		PCE_CD_CDDA_PLAYING,
+		PCE_CD_CDDA_PAUSED
+	};
+
 	const address_space_config m_space_config;
 
 	uint8_t cdc_status_r();
@@ -107,7 +107,7 @@ private:
 	uint8_t m_adpcm_dma_reg = 0;
 	uint8_t m_fader_ctrl = 0;
 
-	void regs_map(address_map &map);
+	void regs_map(address_map &map) ATTR_COLD;
 	void adpcm_stop(uint8_t irq_flag);
 	void adpcm_play();
 	void reply_status_byte(uint8_t status);
